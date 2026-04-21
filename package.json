@@ -1,0 +1,17 @@
+{
+  "name": "cinema-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Portofolio-grade Cinema Booking App with AI features",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+  },
+  "devDependencies": {
+    "turbo": "^2.4.4",
+    "prettier": "^3.5.3"
+  },
+  "packageManager": "pnpm@10.5.2"
+}

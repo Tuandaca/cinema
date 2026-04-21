@@ -1,0 +1,6 @@
+@echo off
+echo Initializing NestJS...
+npx @nestjs/cli new api --directory apps/api --package-manager pnpm --skip-git --skip-install --skip-install
+echo Initializing Next.js...
+npx create-next-app@latest apps/web --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --use-pnpm --skip-install
+echo Done!
