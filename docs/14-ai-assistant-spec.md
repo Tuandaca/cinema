@@ -12,9 +12,15 @@ Trợ lý được thiết kế như một người bạn điện ảnh (Cinema 
 Khi User hỏi: "Cho tôi 2 vé phim Marvel tối nay", AI sẽ gọi các hàm sau:
 1. `searchMovies({ title: 'Marvel', status: 'NOW_SHOWING' })`
 2. `getShowtimes({ movieId: '<id>', date: 'today' })`
-3. Parse kết quả và trả về: "Có suất lúc 19:00 rạp 3. Bạn muốn đặt A7, A8 chứ?"
+3. Parse kết quả và trả về Card lựa chọn: "Có suất lúc 19:00 rạp 3. Bạn muốn đặt A7, A8 chứ?"
 
-## 3. Mood-based Recommendation Strategy
+## 3. Human-in-the-Loop & Booking Flow
+- **Nguyên tắc "Quyền quyết định thuộc về User":** AI tuyệt đối không tự ý thực hiện `lock-seat` hoặc `create-booking` mà không có sự xác nhận rõ ràng của người dùng (thông qua nút bấm Confirm trong Chat hoặc câu trả lời "Đồng ý").
+- **Thời gian giữ ghế (Seat Lock Duration):** Khuyến nghị **8 phút**. Sau 8 phút nếu không thanh toán, ghế sẽ tự động giải phóng (Redis TTL).
+- **Chuyển hướng thanh toán:** Sau khi xác nhận đặt vé thành công qua Chat, hệ thống tự động redirect người dùng đến trang Checkout/Payment để hoàn tất bước cuối cùng.
+
+## 4. Mood-based Recommendation Strategy
+... (giữ nguyên) ...
 - **Prompt:** "Bạn là chuyên gia điện ảnh. Nếu tôi buồn, hãy gợi ý phim hài hoặc chữa lành. Nếu tôi hào hứng, hãy gợi ý phim hành động. Luôn dựa trên danh sách phim hiện có..."
 - **Context:** Backend gửi kèm danh sách phim hiện có (tóm tắt) vào System Message của OpenAI.
 
