@@ -1,10 +1,13 @@
-# 09. UI/UX Specifications & Visual Theme
+# 09. UI/UX Specifications & Visual Theme - CoiCine
 
-## 1. Cinematic Visual Theme (Netflix/Premium Style)
-- **Primary Color:** Carbon Black (`#0B0B0B`)
-- **Accent Color:** Neon Gold (`#FFD700`) hoặc Cyber Cyan (`#00F2FF`)
+## 1. Cinematic Visual Theme (CoiCine Premium Dark Style)
+- **Primary Color:** Deep Charcoal / Obsidian (`#050505`) - Đen sâu để không chói mắt.
+- **Secondary Color:** Dark Ebony (`#121212`) cho các card và sections.
+- **Accent Color:** Neon Gold (`#FFD700`) cho các nút quan trọng và điểm nhấn.
 - **Typography:** Outfit (Sans-serif) cho headlines, Inter cho body text.
 - **Glassmorphism:** Sử dụng hiệu ứng `backdrop-blur` cho các thanh header và popup.
+- **Contrast Rule:** Tuyệt đối không dùng nền trắng hoặc xám sáng cho các diện tích lớn.
+- **Dark Mode Constraint:** Mọi thành phần UI phải tuân thủ WCAG 2.1 AA cho độ tương phản trên nền tối.
 
 ## 2. Component Hierarchy (Next.js components)
 - `layouts/Header.tsx`: Transparent, mờ dần khi cuộn.

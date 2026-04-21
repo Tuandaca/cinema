@@ -12,7 +12,7 @@
 - [x] Middleware bảo mật (Helmet, CORS, Rate Limit)
 - [x] API Health Check & Logger cơ bản
 - [x] Unit Testing for Auth Service
-- [ ] Tích hợp @nestjs/axios & Thư viện TMDB
-- [ ] Triển khai TMDB Sync Service (Lấy dữ liệu phim VN)
-- [ ] Xây dựng Movies Module (Controller & Service)
-- [ ] Script Seed dữ liệu mẫu (Genres, Rooms, Seats, Showtimes)
+- [ ] Tích hợp @nestjs/axios & Cấu hình các API Key (Trakt, OMDb)
+- [ ] Xây dựng Movie Data Adapter (Interface & Trakt Implementation)
+- [ ] Triển khai Sync & Store logic (Trakt -> Supabase)
+- [ ] Script Seed dữ liệu mẫu chuẩn chuẩn (Genres, Rooms, Seats, Showtimes)

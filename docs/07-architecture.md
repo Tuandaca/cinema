@@ -30,7 +30,12 @@ Hệ thống tuân thủ mô hình **Client-Server** với các thành phần:
 - **Flow:** User -> Backend -> OpenAI API -> Function Calling (Backend callbacks) -> Final Response.
 - **Security:** API Key được lưu trong `.env` backend, không bao giờ lộ ra frontend.
 
-## 6. Why chosen?
-- **NestJS:** Cung cấp Dependency Injection mạnh mẽ, giống Angular, phù hợp cho team production.
-- **Turborepo:** Quản lý Monorepo giúp chia sẻ Type giữa FE/BE, giảm thiểu lỗi runtime.
-- **Railway/Vercel:** CI/CD tự động, tối ưu chi phí cho giai đoạn khởi đầu.
+## 7. External Data Adapter Architecture (CoiCine Standard)
+Để đảm bảo tính linh hoạt ("Ngon - Xịn - Dễ tùy biến"), hệ thống sử dụng **Adapter Pattern** cho việc lấy dữ liệu phim:
+- **`IMovieProvider` (Interface):** Định nghĩa các phương thức chuẩn (`getMovies()`, `getMovieDetails()`).
+- **`TraktProvider`, `OmdbProvider`, `KinoCheckProvider`:** Các implementation cụ thể cho từng nguồn.
+- **`MovieMetadataService`:** Đóng vai trò orchestrator, kết hợp dữ liệu từ các Provider (ví dụ: lấy text từ Trakt, điểm từ OMDb) dựa trên **IMDb ID** làm chìa khóa vạn năng.
+- **Benefits:** Dễ dàng thay đổi hoặc thêm bớt các nguồn dữ liệu mà không ảnh hưởng đến logic nghiệp vụ cốt lõi của CoiCine.
+
+## 8. Why chosen?
+... (giữ nguyên) ...
