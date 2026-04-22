@@ -33,18 +33,18 @@ const Header = () => {
       <div className="container mx-auto px-6 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
-          <span className="text-2xl font-headline font-bold text-coicine-gold tracking-tighter">
+          <span className="text-4xl font-headline font-bold text-coicine-gold tracking-tighter">
             COI<span className="text-white">CINE</span>
           </span>
         </Link>
 
         {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden md:flex items-center gap-10">
           {navLinks.map((link) => (
             <Link 
               key={link.name} 
               href={link.href}
-              className="text-base font-semibold hover:text-coicine-gold transition-colors duration-200"
+              className="text-lg font-semibold hover:text-coicine-gold transition-colors duration-200"
             >
               {link.name}
             </Link>

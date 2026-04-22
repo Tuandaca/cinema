@@ -14,6 +14,7 @@ const outfit = Outfit({
 
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import QueryProvider from "@/providers/QueryProvider";
 
 export const metadata: Metadata = {
   title: "CoiCine | Premium Cinematic Experience",
@@ -28,11 +29,13 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${inter.variable} ${outfit.variable} antialiased bg-background text-foreground`}>
-        <Header />
-        <main className="min-h-screen">
-          {children}
-        </main>
-        <Footer />
+        <QueryProvider>
+          <Header />
+          <main className="min-h-screen">
+            {children}
+          </main>
+          <Footer />
+        </QueryProvider>
       </body>
     </html>
   );

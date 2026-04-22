@@ -1,37 +1,16 @@
+"use client";
+
 import Hero from "@/components/home/Hero";
 import MovieCard from "@/components/movies/MovieCard";
+import { movieService } from "@/services/movie.service";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
 
 export default function Home() {
-  const trendingMovies = [
-    {
-      title: "Avatar: Fire and Ash",
-      posterUrl: "https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?q=80&w=2070&auto=format&fit=crop",
-      rating: "9.8",
-      duration: "162 min",
-      genre: ["Action", "Sci-Fi"]
-    },
-    {
-      title: "Project Hail Mary",
-      posterUrl: "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?q=80&w=2072&auto=format&fit=crop",
-      rating: "9.5",
-      duration: "135 min",
-      genre: ["Sci-Fi", "Drama"]
-    },
-    {
-      title: "The Super Mario Galaxy",
-      posterUrl: "https://images.unsplash.com/photo-1605898835518-20380ce40b4a?q=80&w=2070&auto=format&fit=crop",
-      rating: "8.9",
-      duration: "105 min",
-      genre: ["Animation", "Adventure"]
-    },
-    {
-      title: "Balls Up",
-      posterUrl: "https://images.unsplash.com/photo-1542010589005-d1eabbad53c2?q=80&w=2070&auto=format&fit=crop",
-      rating: "8.2",
-      duration: "110 min",
-      genre: ["Action", "Comedy"]
-    },
-  ];
+  const { data: movies, isLoading, isError } = useQuery({
+    queryKey: ['movies'],
+    queryFn: () => movieService.getAllMovies(),
+  });
 
   return (
     <div className="flex flex-col w-full">
@@ -47,11 +26,22 @@ export default function Home() {
           <button className="text-coicine-gold font-bold hover:underline">View All</button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {trendingMovies.map((movie, index) => (
-            <MovieCard key={index} {...movie} />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <Loader2 className="w-12 h-12 text-coicine-gold animate-spin" />
+            <p className="text-gray-400 font-medium">Fetching cinematic magic...</p>
+          </div>
+        ) : isError ? (
+          <div className="text-center py-20 text-red-500">
+            Failed to load movies. Please make sure the Backend is running.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {movies?.map((movie) => (
+              <MovieCard key={movie.id} movie={movie} />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Promo Banner */}

@@ -7,7 +7,7 @@
 - [x] Xây dựng Layout tổng thể (Header, Footer, Mobile Navigation)
 - [x] Component Hero Section (Cinematic Hero with Framer Motion)
 - [x] Dynamic Movie Cards with Framer Motion effects
-- [ ] Trang danh sách phim (SSR/ISR for SEO)
-- [ ] Trang chi tiết phim (Dynamic routes)
-- [ ] Tích hợp React Query cho Movie APIs
-- [ ] Loading Skeletons cho Movie list & Detail
+- [x] Trang danh sách phim (Real-time data from Backend)
+- [x] Trang chi tiết phim (Dynamic routes with real data)
+- [x] Tích hợp React Query cho Movie APIs
+- [x] Loading Skeletons & States cho Movie list & Detail
