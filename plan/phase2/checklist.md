@@ -14,5 +14,5 @@
 - [x] Unit Testing for Auth Service
 - [x] Tích hợp @nestjs/axios & Cấu hình các API Key (Trakt, OMDb)
 - [x] Xây dựng Movie Data Adapter (Interface & Trakt Implementation)
-- [ ] Triển khai Sync & Store logic (Trakt -> Supabase)
-- [ ] Script Seed dữ liệu mẫu chuẩn chuẩn (Genres, Rooms, Seats, Showtimes)
+- [x] Triển khai Sync & Store logic (Trakt -> Supabase)
+- [x] Script Seed dữ liệu mẫu chuẩn chuẩn (Genres, Rooms, Seats, Showtimes)
