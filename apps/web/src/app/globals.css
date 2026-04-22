@@ -3,12 +3,38 @@
 @tailwind utilities;
 
 :root {
-  --background: #000000;
+  --background: #050505;
   --foreground: #ffffff;
+  --font-outfit: 'Outfit', sans-serif;
+  --font-inter: 'Inter', sans-serif;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter);
+}
+
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-outfit);
+    font-weight: 700;
+  }
+}
+
+/* Custom Glassmorphism Utility */
+.glass {
+  background: rgba(18, 18, 18, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Neon Glow Effect */
+.neon-text {
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.neon-border {
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
 }
