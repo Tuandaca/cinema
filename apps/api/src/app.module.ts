@@ -5,6 +5,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
 import { MoviesModule } from './movies/movies.module';
+import { BookingModule } from './booking/booking.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { MoviesModule } from './movies/movies.module';
     AuthModule,
     HealthModule,
     MoviesModule,
+    BookingModule,
   ],
   controllers: [],
   providers: [],
