@@ -10,4 +10,4 @@
 - [x] WebSocket event: `seat_locked` (Giữ ghế tạm thời)
 - [x] Xử lý Timeout giải phóng ghế (Redis TTL)
 - [x] Logic Pulse animations cho Selecting seats
-- [ ] Xử lý Edge Case: User thoát đột ngột (Socket disconnect lock cleanup)
+- [x] Xử lý Edge Case: User thoát đột ngột (Socket disconnect lock cleanup)

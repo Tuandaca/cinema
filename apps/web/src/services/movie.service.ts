@@ -11,7 +11,7 @@ export interface Genre {
 export interface Movie {
   id: string;
   title: string;
-  overview: string | null;
+  description: string | null;
   posterUrl: string | null;
   backdropUrl: string | null;
   trailerUrl: string | null;

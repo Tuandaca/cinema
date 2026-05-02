@@ -52,6 +52,12 @@ const MovieDetailPage = () => {
               alt={movie.title} 
               className="w-full h-full object-cover"
             />
+          ) : movie.posterUrl ? (
+            <img 
+              src={movie.posterUrl} 
+              alt={movie.title} 
+              className="w-full h-full object-cover blur-md opacity-50 transform scale-110"
+            />
           ) : (
             <div className="w-full h-full bg-neutral-900" />
           )}
@@ -112,7 +118,7 @@ const MovieDetailPage = () => {
               <div className="flex flex-wrap items-center gap-8 mb-10 text-gray-300">
                 <div className="flex items-center gap-2">
                   <Star size={20} className="text-coicine-gold fill-coicine-gold" />
-                  <span className="text-xl font-bold text-white">{movie.rating || 'N/A'}</span>
+                  <span className="text-xl font-bold text-white">{movie.rating ? movie.rating.toFixed(2) : 'N/A'}</span>
                   <span className="text-sm">Rating</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -130,7 +136,7 @@ const MovieDetailPage = () => {
               </div>
 
               <p className="text-xl text-gray-400 leading-relaxed mb-12 max-w-3xl">
-                {movie.overview || "No overview available for this movie."}
+                {movie.description || "No overview available for this movie."}
               </p>
 
               <div className="flex flex-wrap gap-4">

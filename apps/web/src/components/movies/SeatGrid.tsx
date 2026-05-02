@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Seat } from '@/services/booking.service';
 import { useSocket } from '@/providers/SocketProvider';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface SeatGridProps {
   showtimeId: string;
@@ -11,17 +12,29 @@ interface SeatGridProps {
   currentUserId?: string; // Replace with actual auth user
 }
 
-export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, currentUserId = 'anonymous' }: SeatGridProps) {
+export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, currentUserId: initialUserId }: SeatGridProps) {
   const { socket, isConnected } = useSocket();
+  const queryClient = useQueryClient();
+  const [currentUserId] = useState(initialUserId || `user-${Math.floor(Math.random() * 1000)}`);
   const [seats, setSeats] = useState<Seat[]>(initialSeats);
   const [selectedSeatIds, setSelectedSeatIds] = useState<Set<string>>(new Set());
   const [othersSelecting, setOthersSelecting] = useState<Set<string>>(new Set());
+
+  // Update local seats when initialSeats change (e.g. from refetch)
+  useEffect(() => {
+    setSeats(initialSeats);
+  }, [initialSeats]);
 
   // Listen to socket events
   useEffect(() => {
     if (!socket || !isConnected) return;
 
-    socket.emit('join_showtime', { showtimeId });
+    socket.emit('join_showtime', { showtimeId, userId: currentUserId });
+
+    const handleConnect = () => {
+      // Refetch seats from API when socket reconnects to ensure no missed 'seats_locked' events
+      queryClient.invalidateQueries({ queryKey: ['seats', showtimeId] });
+    };
 
     const handleSeatSelecting = (data: { seatId: string; userId: string }) => {
       if (data.userId !== currentUserId) {
@@ -57,17 +70,19 @@ export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, 
       }
     };
 
+    socket.on('connect', handleConnect);
     socket.on('seat_selecting', handleSeatSelecting);
     socket.on('seat_deselected', handleSeatDeselected);
     socket.on('seats_locked', handleSeatsLocked);
 
     return () => {
       socket.emit('leave_showtime', { showtimeId });
+      socket.off('connect', handleConnect);
       socket.off('seat_selecting', handleSeatSelecting);
       socket.off('seat_deselected', handleSeatDeselected);
       socket.off('seats_locked', handleSeatsLocked);
     };
-  }, [socket, isConnected, showtimeId, currentUserId]);
+  }, [socket, isConnected, showtimeId, currentUserId, queryClient]);
 
   // Update parent when selection changes
   useEffect(() => {
@@ -75,8 +90,9 @@ export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, 
   }, [selectedSeatIds, onSelectionChange]);
 
   const handleSeatClick = (seat: Seat) => {
-    if (seat.status === 'BOOKED' || (seat.status === 'LOCKED' && seat.lockedBy !== currentUserId)) {
-      return; // Can't select booked or someone else's locked seat
+    const isOthersSelecting = othersSelecting.has(seat.id) && !selectedSeatIds.has(seat.id);
+    if (seat.status === 'BOOKED' || (seat.status === 'LOCKED' && seat.lockedBy !== currentUserId) || isOthersSelecting) {
+      return; // Can't select booked, locked by someone else, or seats currently being selected by someone else
     }
 
     const newSet = new Set(selectedSeatIds);
@@ -145,7 +161,7 @@ export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, 
                   <button
                     key={seat.id}
                     onClick={() => handleSeatClick(seat)}
-                    disabled={isBooked || isLocked}
+                    disabled={isBooked || isLocked || isOthersSelecting}
                     className={seatClasses}
                     title={`${row}${seat.number} - ${seat.type}`}
                   >

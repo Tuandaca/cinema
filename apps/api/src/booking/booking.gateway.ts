@@ -22,6 +22,7 @@ export class BookingGateway implements OnGatewayConnection, OnGatewayDisconnect 
   server: Server;
 
   private logger: Logger = new Logger('BookingGateway');
+  private socketToUser: Map<string, string> = new Map();
 
   constructor(private bookingService: BookingService) {}
 
@@ -29,19 +30,32 @@ export class BookingGateway implements OnGatewayConnection, OnGatewayDisconnect 
     this.logger.log(`Client connected: ${client.id}`);
   }
 
-  handleDisconnect(client: Socket) {
+  async handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected: ${client.id}`);
-    // We could clean up locks here if we track them by socketId, 
-    // but we use Redis TTL and userId, so it's handled.
+    const userId = this.socketToUser.get(client.id);
+    if (userId) {
+      this.socketToUser.delete(client.id);
+      // Optional: Check if user has other active sockets before releasing?
+      // For simplicity, we release all locks for this user.
+      await this.bookingService.releaseAllUserLocks(userId);
+      
+      // Notify other clients in all rooms this client was in
+      // Actually, we should broadcast that seats are now available
+      // For now, clients will refresh status if we emit a global or room event
+      this.server.emit('user_disconnected', { userId });
+    }
   }
 
   @SubscribeMessage('join_showtime')
   handleJoinShowtime(
-    @MessageBody() data: { showtimeId: string },
+    @MessageBody() data: { showtimeId: string; userId: string },
     @ConnectedSocket() client: Socket,
   ) {
     client.join(data.showtimeId);
-    this.logger.log(`Client ${client.id} joined showtime ${data.showtimeId}`);
+    if (data.userId) {
+      this.socketToUser.set(client.id, data.userId);
+    }
+    this.logger.log(`Client ${client.id} (User: ${data.userId}) joined showtime ${data.showtimeId}`);
     return { event: 'joined', data: data.showtimeId };
   }
 
@@ -60,6 +74,7 @@ export class BookingGateway implements OnGatewayConnection, OnGatewayDisconnect 
     @MessageBody() data: { showtimeId: string; seatId: string; userId: string },
     @ConnectedSocket() client: Socket,
   ) {
+    this.logger.log(`User ${data.userId} selecting seat ${data.seatId} for showtime ${data.showtimeId}`);
     // Broadcast to everyone else in the room
     client.to(data.showtimeId).emit('seat_selecting', {
       seatId: data.seatId,
@@ -72,6 +87,7 @@ export class BookingGateway implements OnGatewayConnection, OnGatewayDisconnect 
     @MessageBody() data: { showtimeId: string; seatId: string; userId: string },
     @ConnectedSocket() client: Socket,
   ) {
+    this.logger.log(`User ${data.userId} deselecting seat ${data.seatId} for showtime ${data.showtimeId}`);
     client.to(data.showtimeId).emit('seat_deselected', {
       seatId: data.seatId,
       userId: data.userId,

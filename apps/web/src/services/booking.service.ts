@@ -12,7 +12,29 @@ export interface Seat {
   lockedBy?: string;
 }
 
+export interface ShowtimeDetails {
+  id: string;
+  startTime: string;
+  endTime: string;
+  priceBase: number;
+  movie: {
+    title: string;
+    posterUrl: string | null;
+  };
+  room: {
+    name: string;
+  };
+}
+
 export const bookingService = {
+  getShowtimeDetails: async (showtimeId: string): Promise<ShowtimeDetails> => {
+    const response = await fetch(`${API_URL}/showtimes/${showtimeId}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch showtime details');
+    }
+    return response.json();
+  },
+
   getSeats: async (showtimeId: string): Promise<Seat[]> => {
     const response = await fetch(`${API_URL}/showtimes/${showtimeId}/seats`);
     if (!response.ok) {

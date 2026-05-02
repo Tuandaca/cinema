@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Query, UseGuards, Param } from '@nestjs/common';
 import { MoviesService } from './movies.service';
 import { MovieSyncService } from './movie-sync.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -16,6 +16,11 @@ export class MoviesController {
   @Get()
   async findAll(@Query('genre') genre?: string) {
     return this.moviesService.findAll(genre);
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    return this.moviesService.findOne(id);
   }
 
   @Post('sync')

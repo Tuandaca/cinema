@@ -26,6 +26,22 @@ export class BookingService {
   // 5 minutes lock
   private readonly LOCK_TTL = 300;
 
+  async getShowtimeDetails(showtimeId: string) {
+    const showtime = await this.prisma.showtime.findUnique({
+      where: { id: showtimeId },
+      include: {
+        movie: true,
+        room: true,
+      },
+    });
+
+    if (!showtime) {
+      throw new BadRequestException('Showtime not found');
+    }
+
+    return showtime;
+  }
+
   async getSeatsStatus(showtimeId: string): Promise<SeatStatus[]> {
     const showtime = await this.prisma.showtime.findUnique({
       where: { id: showtimeId },
@@ -179,5 +195,22 @@ export class BookingService {
     `;
 
     await this.redis.eval(script, lockKeys.length, ...lockKeys, userId);
+  }
+
+  async releaseAllUserLocks(userId: string): Promise<void> {
+    const keys = await this.redis.keys('lock:*:*');
+    if (keys.length === 0) return;
+
+    const pipeline = this.redis.pipeline();
+    const values = await this.redis.mget(keys);
+
+    keys.forEach((key, index) => {
+      if (values[index] === userId) {
+        pipeline.del(key);
+      }
+    });
+
+    await pipeline.exec();
+    this.logger.log(`Released all locks for user: ${userId}`);
   }
 }

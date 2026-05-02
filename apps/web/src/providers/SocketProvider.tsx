@@ -21,7 +21,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     // Connect to the backend booking namespace
-    const socketInstance = io(process.env.NEXT_PUBLIC_API_URL + '/booking' || 'http://localhost:3001/booking', {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const socketInstance = io(`${baseUrl}/booking`, {
       transports: ['websocket'],
     });
 

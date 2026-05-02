@@ -7,18 +7,26 @@ import SeatGrid from '@/components/movies/SeatGrid';
 
 // Note: In Next.js 15 App router, params is a promise but since this is a client component
 // we can use standard React.use if needed, but often params are directly accessible or we use useParams
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+import { Calendar, Clock, MapPin } from 'lucide-react';
 
 export default function BookingPage() {
   const params = useParams();
-  const showtimeId = params.id as string; // The URL might be /movies/[id]/booking or /showtimes/[id]/booking. Let's assume this is /movies/[id]/booking and ID is showtimeId for now, or just use it.
+  const router = useRouter();
+  const showtimeId = params.id as string;
   
   const [selectedSeatIds, setSelectedSeatIds] = useState<string[]>([]);
   const [isLocking, setIsLocking] = useState(false);
 
-  const { data: seats, isLoading, error } = useQuery({
+  const { data: seats, isLoading: seatsLoading, error: seatsError } = useQuery({
     queryKey: ['seats', showtimeId],
     queryFn: () => bookingService.getSeats(showtimeId),
+    enabled: !!showtimeId,
+  });
+
+  const { data: showtime, isLoading: showtimeLoading } = useQuery({
+    queryKey: ['showtime', showtimeId],
+    queryFn: () => bookingService.getShowtimeDetails(showtimeId),
     enabled: !!showtimeId,
   });
 
@@ -29,8 +37,9 @@ export default function BookingPage() {
       // Dummy token for now
       const token = 'dummy-jwt-token';
       await bookingService.lockSeats(showtimeId, selectedSeatIds, token);
-      alert('Seats locked successfully! You have 5 minutes to complete payment.');
-      // Proceed to checkout/payment page...
+      // Redirect to checkout
+      const seatsQuery = selectedSeatIds.join(',');
+      router.push(`/checkout?showtimeId=${showtimeId}&seats=${seatsQuery}`);
     } catch (err: any) {
       alert(err.message || 'Failed to lock seats');
     } finally {
@@ -38,16 +47,28 @@ export default function BookingPage() {
     }
   };
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center">Loading seats...</div>;
-  if (error) return <div className="min-h-screen flex items-center justify-center text-red-500">Error loading seats</div>;
-  if (!seats) return <div className="min-h-screen flex items-center justify-center">No seats found</div>;
+  if (seatsLoading || showtimeLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (seatsError) return <div className="min-h-screen flex items-center justify-center text-red-500">Error loading data</div>;
+  if (!seats || !showtime) return <div className="min-h-screen flex items-center justify-center">Data not found</div>;
 
   return (
     <div className="min-h-screen bg-background pt-24 pb-12">
       <div className="container mx-auto px-4 max-w-5xl">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-outfit font-bold mb-2">Select Your Seats</h1>
-          <p className="text-white/60">Choose your perfect spot for the ultimate cinematic experience.</p>
+        {/* Movie Info Banner */}
+        <div className="mb-8 flex flex-col md:flex-row gap-6 items-center bg-zinc-900/50 p-6 rounded-2xl border border-white/5 backdrop-blur-md">
+          {showtime.movie.posterUrl ? (
+            <img src={showtime.movie.posterUrl} alt={showtime.movie.title} className="w-24 h-auto rounded-lg shadow-lg" />
+          ) : (
+            <div className="w-24 h-36 bg-zinc-800 rounded-lg flex items-center justify-center text-xs text-zinc-500">No Poster</div>
+          )}
+          <div className="flex-1">
+            <h1 className="text-3xl font-outfit font-bold mb-3">{showtime.movie.title}</h1>
+            <div className="flex flex-wrap gap-4 text-white/70 text-sm">
+              <div className="flex items-center gap-2"><MapPin size={16} className="text-coicine-gold"/> {showtime.room.name}</div>
+              <div className="flex items-center gap-2"><Calendar size={16} className="text-coicine-gold"/> {new Date(showtime.startTime).toLocaleDateString()}</div>
+              <div className="flex items-center gap-2"><Clock size={16} className="text-coicine-gold"/> {new Date(showtime.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+            </div>
+          </div>
         </div>
 
         <div className="bg-zinc-900/50 rounded-2xl p-6 border border-white/5 backdrop-blur-md mb-8">
@@ -55,7 +76,7 @@ export default function BookingPage() {
             showtimeId={showtimeId} 
             initialSeats={seats} 
             onSelectionChange={setSelectedSeatIds} 
-            currentUserId="user-123" // Replace with actual user ID from auth context
+            // currentUserId="user-123" // Replace with actual user ID from auth context
           />
         </div>
 
@@ -73,8 +94,7 @@ export default function BookingPage() {
               <p className="text-white/60 text-sm mb-1">Total Price</p>
               <p className="text-2xl font-bold text-cyan-400 font-outfit">
                 ${selectedSeatIds.length > 0 
-                  // Simple mock price, in reality fetch from seat/showtime
-                  ? selectedSeatIds.length * 15 
+                  ? selectedSeatIds.length * showtime.priceBase 
                   : 0}
               </p>
             </div>
