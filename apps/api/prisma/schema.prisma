@@ -35,6 +35,7 @@ model User {
   bookings  Booking[]
   reviews   Review[]
   chatSessions AIChatSession[]
+  stripeCustomerId String? @unique
   createdAt DateTime  @default(now())
 }
 

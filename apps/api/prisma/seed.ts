@@ -128,7 +128,40 @@ async function main() {
     console.warn('⚠️ Skipping movie seed: API keys missing in .env');
   }
 
+  // 5. Seed F&B Combos
+  const combos = [
+    {
+      id: 'combo-1',
+      name: 'Single Combo',
+      description: '1 Popcorn (L) + 1 Drink (L)',
+      price: 15.0,
+    },
+    {
+      id: 'combo-2',
+      name: 'Couple Combo',
+      description: '1 Popcorn (L) + 2 Drinks (L)',
+      price: 22.0,
+    },
+    {
+      id: 'combo-3',
+      name: 'Family Combo',
+      description: '2 Popcorns (L) + 4 Drinks (L) + 2 Snack',
+      price: 45.0,
+    },
+  ];
+
+  console.log('🍔 Seeding F&B Combos...');
+  for (const combo of combos) {
+    await prisma.combo.upsert({
+      where: { id: combo.id },
+      update: {},
+      create: combo,
+    });
+  }
+  console.log('✅ F&B Combos created.');
+
   console.log('✨ Seeding completed successfully.');
+
 }
 
 main()

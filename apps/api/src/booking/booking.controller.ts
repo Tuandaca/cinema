@@ -32,4 +32,14 @@ export class BookingController {
     this.bookingGateway.notifySeatsLocked(showtimeId, body.seatIds, userId);
     return { success: true, message: 'Seats locked successfully' };
   }
+
+  // Phase 5: Create Booking with Combos
+  @Post('bookings')
+  async createBooking(
+    @Body() body: { showtimeId: string; seatIds: string[]; combos: { comboId: string; quantity: number }[] },
+    @Req() req: any,
+  ) {
+    const userId = req.user?.userId || 'test-user-id'; // Mock user
+    return this.bookingService.createBooking(userId, body.showtimeId, body.seatIds, body.combos);
+  }
 }

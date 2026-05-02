@@ -19,12 +19,15 @@ export default function BookingPage() {
   const [isLocking, setIsLocking] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
+  const hasSelectedSeats = selectedSeatIds.length > 0;
+
   React.useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (selectedSeatIds.length > 0) {
+    if (hasSelectedSeats) {
       const storedTime = localStorage.getItem(`booking_start_${showtimeId}`);
       if (storedTime) {
-        interval = setInterval(() => {
+        // Run immediately once so we don't wait 1s for the first tick
+        const tick = () => {
           const elapsed = Math.floor((Date.now() - parseInt(storedTime)) / 1000);
           const remaining = 300 - elapsed; // 5 minutes
           if (remaining <= 0) {
@@ -35,13 +38,15 @@ export default function BookingPage() {
           } else {
             setTimeLeft(remaining);
           }
-        }, 1000);
+        };
+        tick(); // Initial tick
+        interval = setInterval(tick, 1000);
       }
     } else {
       setTimeLeft(null);
     }
     return () => clearInterval(interval);
-  }, [selectedSeatIds, showtimeId]);
+  }, [hasSelectedSeats, showtimeId]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);

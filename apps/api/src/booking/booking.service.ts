@@ -282,4 +282,71 @@ export class BookingService {
     `;
     await this.redis.eval(script, 1, softKey, userId);
   }
+
+  // --- ORDER CREATION ---
+
+  async createBooking(
+    userId: string,
+    showtimeId: string,
+    seatIds: string[],
+    combos: { comboId: string; quantity: number }[]
+  ) {
+    // Foreign key fix for mock users:
+    let validUserId = userId;
+    const userExists = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!userExists) {
+      const fallbackUser = await this.prisma.user.findFirst();
+      if (!fallbackUser) throw new BadRequestException('No users in database to associate booking with');
+      validUserId = fallbackUser.id;
+    }
+
+    const showtime = await this.prisma.showtime.findUnique({
+      where: { id: showtimeId },
+    });
+
+    if (!showtime) throw new BadRequestException('Showtime not found');
+
+    let totalAmount = 0;
+    
+    // Calculate seats price
+    totalAmount += seatIds.length * showtime.priceBase;
+    
+    // VIP seats might have extra charge later, but let's keep simple
+
+    // Calculate combos price
+    const orderItemsData = [];
+    if (combos && combos.length > 0) {
+      for (const item of combos) {
+        const combo = await this.prisma.combo.findUnique({ where: { id: item.comboId } });
+        if (combo) {
+          totalAmount += combo.price * item.quantity;
+          orderItemsData.push({
+            comboId: item.comboId,
+            quantity: item.quantity,
+          });
+        }
+      }
+    }
+
+    // Create DB Booking
+    const booking = await this.prisma.booking.create({
+      data: {
+        userId: validUserId,
+        showtimeId,
+        status: 'PENDING',
+        totalAmount,
+        seats: {
+          create: seatIds.map(seatId => ({
+            seatId,
+            price: showtime.priceBase,
+          })),
+        },
+        orderItems: {
+          create: orderItemsData,
+        },
+      },
+    });
+
+    return booking;
+  }
 }

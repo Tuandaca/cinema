@@ -6,6 +6,8 @@ import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
 import { MoviesModule } from './movies/movies.module';
 import { BookingModule } from './booking/booking.module';
+import { ComboModule } from './combo/combo.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -23,6 +25,8 @@ import { BookingModule } from './booking/booking.module';
     HealthModule,
     MoviesModule,
     BookingModule,
+    ComboModule,
+    PaymentModule,
   ],
   controllers: [],
   providers: [],
