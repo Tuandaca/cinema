@@ -140,7 +140,10 @@ const MovieDetailPage = () => {
               </p>
 
               <div className="flex flex-wrap gap-4">
-                <button className="flex items-center gap-3 px-10 py-5 bg-coicine-gold text-black rounded-full font-bold hover:bg-yellow-400 transition-all transform hover:scale-105 shadow-[0_0_30px_rgba(255,215,0,0.3)]">
+                <button 
+                  onClick={() => router.push('/movies/test-showtime-1/booking')}
+                  className="flex items-center gap-3 px-10 py-5 bg-coicine-gold text-black rounded-full font-bold hover:bg-yellow-400 transition-all transform hover:scale-105 shadow-[0_0_30px_rgba(255,215,0,0.3)]"
+                >
                   <Ticket size={24} />
                   Book Tickets Now
                 </button>

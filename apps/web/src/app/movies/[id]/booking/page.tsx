@@ -17,6 +17,37 @@ export default function BookingPage() {
   
   const [selectedSeatIds, setSelectedSeatIds] = useState<string[]>([]);
   const [isLocking, setIsLocking] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+  React.useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (selectedSeatIds.length > 0) {
+      const storedTime = localStorage.getItem(`booking_start_${showtimeId}`);
+      if (storedTime) {
+        interval = setInterval(() => {
+          const elapsed = Math.floor((Date.now() - parseInt(storedTime)) / 1000);
+          const remaining = 300 - elapsed; // 5 minutes
+          if (remaining <= 0) {
+            clearInterval(interval);
+            localStorage.removeItem(`booking_start_${showtimeId}`);
+            alert('Hết thời gian giữ ghế. Vui lòng chọn lại!');
+            window.location.reload();
+          } else {
+            setTimeLeft(remaining);
+          }
+        }, 1000);
+      }
+    } else {
+      setTimeLeft(null);
+    }
+    return () => clearInterval(interval);
+  }, [selectedSeatIds, showtimeId]);
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
 
   const { data: seats, isLoading: seatsLoading, error: seatsError } = useQuery({
     queryKey: ['seats', showtimeId],
@@ -90,6 +121,12 @@ export default function BookingPage() {
             </p>
           </div>
           <div className="text-right flex items-center gap-6">
+            {timeLeft !== null && (
+              <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-2 rounded-lg font-mono text-lg flex flex-col items-center shadow-[0_0_10px_rgba(239,68,68,0.2)]">
+                <span className="text-xs text-white/50 mb-1">Time Left</span>
+                <span className="font-bold leading-none">{formatTime(timeLeft)}</span>
+              </div>
+            )}
             <div>
               <p className="text-white/60 text-sm mb-1">Total Price</p>
               <p className="text-2xl font-bold text-cyan-400 font-outfit">

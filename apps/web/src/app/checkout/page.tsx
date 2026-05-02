@@ -14,20 +14,35 @@ function CheckoutContent() {
   const seatsParam = searchParams.get('seats');
   const seatIds = seatsParam ? seatsParam.split(',') : [];
 
-  // 5 minutes countdown timer
-  const [timeLeft, setTimeLeft] = useState(300); // 300 seconds = 5 minutes
+  // Continuous 5 minutes countdown timer
+  const [timeLeft, setTimeLeft] = useState<number>(300);
 
   useEffect(() => {
-    if (timeLeft <= 0) {
-      alert('Your seat reservation has expired. Please select seats again.');
+    let interval: NodeJS.Timeout;
+    const storedTime = localStorage.getItem(`booking_start_${showtimeId}`);
+    
+    if (storedTime) {
+      interval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - parseInt(storedTime)) / 1000);
+        const remaining = 300 - elapsed;
+        
+        if (remaining <= 0) {
+          clearInterval(interval);
+          localStorage.removeItem(`booking_start_${showtimeId}`);
+          alert('Your seat reservation has expired. Please select seats again.');
+          router.push(`/movies/${showtimeId}/booking`);
+        } else {
+          setTimeLeft(remaining);
+        }
+      }, 1000);
+    } else {
+      // If someone lands here without a timer, kick them out
+      alert('Invalid booking session.');
       router.push(`/movies/${showtimeId}/booking`);
-      return;
     }
-    const timer = setInterval(() => {
-      setTimeLeft(prev => prev - 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [timeLeft, router, showtimeId]);
+
+    return () => clearInterval(interval);
+  }, [router, showtimeId]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);

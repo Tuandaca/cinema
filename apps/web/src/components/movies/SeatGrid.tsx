@@ -60,7 +60,7 @@ export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, 
         data.seatIds.forEach(id => next.delete(id));
         return next;
       });
-      // If we had them selected, remove them (someone else locked them faster)
+      // If we had them selected, remove them (someone else hard-locked them faster)
       if (data.userId !== currentUserId) {
         setSelectedSeatIds(prev => {
           const next = new Set(prev);
@@ -70,10 +70,41 @@ export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, 
       }
     };
 
+    const handleSelectSuccess = (data: { seatId: string; userId: string }) => {
+      if (data.userId === currentUserId) {
+        setSelectedSeatIds(prev => {
+          const next = new Set(prev);
+          next.add(data.seatId);
+          return next;
+        });
+        // Start timer if first seat
+        const existingStart = localStorage.getItem(`booking_start_${showtimeId}`);
+        if (!existingStart) {
+          localStorage.setItem(`booking_start_${showtimeId}`, Date.now().toString());
+        }
+      }
+    };
+
+    const handleSelectFailed = (data: { seatId: string; userId: string }) => {
+      if (data.userId === currentUserId) {
+        alert('Ghế này vừa bị người khác chọn mất!');
+        setSelectedSeatIds(prev => {
+          const next = new Set(prev);
+          next.delete(data.seatId);
+          if (next.size === 0) {
+            localStorage.removeItem(`booking_start_${showtimeId}`);
+          }
+          return next;
+        });
+      }
+    };
+
     socket.on('connect', handleConnect);
     socket.on('seat_selecting', handleSeatSelecting);
     socket.on('seat_deselected', handleSeatDeselected);
     socket.on('seats_locked', handleSeatsLocked);
+    socket.on('select_seat_success', handleSelectSuccess);
+    socket.on('select_seat_failed', handleSelectFailed);
 
     return () => {
       socket.emit('leave_showtime', { showtimeId });
@@ -81,6 +112,8 @@ export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, 
       socket.off('seat_selecting', handleSeatSelecting);
       socket.off('seat_deselected', handleSeatDeselected);
       socket.off('seats_locked', handleSeatsLocked);
+      socket.off('select_seat_success', handleSelectSuccess);
+      socket.off('select_seat_failed', handleSelectFailed);
     };
   }, [socket, isConnected, showtimeId, currentUserId, queryClient]);
 
@@ -99,15 +132,27 @@ export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, 
     if (newSet.has(seat.id)) {
       newSet.delete(seat.id);
       socket?.emit('deselect_seat', { showtimeId, seatId: seat.id, userId: currentUserId });
+      setSelectedSeatIds(newSet);
+      if (newSet.size === 0) {
+        localStorage.removeItem(`booking_start_${showtimeId}`);
+      }
     } else {
       if (newSet.size >= 8) {
         alert('You can only select up to 8 seats.');
         return;
       }
+      // Optimistically add it
       newSet.add(seat.id);
       socket?.emit('select_seat', { showtimeId, seatId: seat.id, userId: currentUserId });
+      setSelectedSeatIds(newSet);
+      
+      if (newSet.size === 1) { // Was 0 before
+         const existingStart = localStorage.getItem(`booking_start_${showtimeId}`);
+         if (!existingStart) {
+           localStorage.setItem(`booking_start_${showtimeId}`, Date.now().toString());
+         }
+      }
     }
-    setSelectedSeatIds(newSet);
   };
 
   // Group seats by row for rendering

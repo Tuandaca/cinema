@@ -68,26 +68,37 @@ export class BookingGateway implements OnGatewayConnection, OnGatewayDisconnect 
     this.logger.log(`Client ${client.id} left showtime ${data.showtimeId}`);
   }
 
-  // Real-time "typing" indicator for seats
+  // Real-time "typing" indicator for seats -> Now acts as Soft-Lock
   @SubscribeMessage('select_seat')
-  handleSelectSeat(
+  async handleSelectSeat(
     @MessageBody() data: { showtimeId: string; seatId: string; userId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    this.logger.log(`User ${data.userId} selecting seat ${data.seatId} for showtime ${data.showtimeId}`);
-    // Broadcast to everyone else in the room
-    client.to(data.showtimeId).emit('seat_selecting', {
-      seatId: data.seatId,
-      userId: data.userId,
-    });
+    this.logger.log(`User ${data.userId} attempting to soft-lock seat ${data.seatId} for showtime ${data.showtimeId}`);
+    
+    const success = await this.bookingService.softLockSeat(data.showtimeId, data.seatId, data.userId);
+    
+    if (success) {
+      // Broadcast to everyone else in the room
+      client.to(data.showtimeId).emit('seat_selecting', {
+        seatId: data.seatId,
+        userId: data.userId,
+      });
+      // Notify the sender that it succeeded
+      client.emit('select_seat_success', data);
+    } else {
+      // Notify the sender that it failed
+      client.emit('select_seat_failed', data);
+    }
   }
 
   @SubscribeMessage('deselect_seat')
-  handleDeselectSeat(
+  async handleDeselectSeat(
     @MessageBody() data: { showtimeId: string; seatId: string; userId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    this.logger.log(`User ${data.userId} deselecting seat ${data.seatId} for showtime ${data.showtimeId}`);
+    this.logger.log(`User ${data.userId} releasing soft-lock on seat ${data.seatId} for showtime ${data.showtimeId}`);
+    await this.bookingService.releaseSoftLockSeat(data.showtimeId, data.seatId, data.userId);
     client.to(data.showtimeId).emit('seat_deselected', {
       seatId: data.seatId,
       userId: data.userId,
