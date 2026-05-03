@@ -16,6 +16,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import QueryProvider from "@/providers/QueryProvider";
 import { SocketProvider } from "@/providers/SocketProvider";
+import { FloatingChatbot } from "@/components/ai/FloatingChatbot";
 
 export const metadata: Metadata = {
   title: "CoiCine | Premium Cinematic Experience",
@@ -37,6 +38,7 @@ export default function RootLayout({
               {children}
             </main>
             <Footer />
+            <FloatingChatbot />
           </SocketProvider>
         </QueryProvider>
       </body>

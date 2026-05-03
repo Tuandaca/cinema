@@ -8,6 +8,7 @@ import { MoviesModule } from './movies/movies.module';
 import { BookingModule } from './booking/booking.module';
 import { ComboModule } from './combo/combo.module';
 import { PaymentModule } from './payment/payment.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { PaymentModule } from './payment/payment.module';
     BookingModule,
     ComboModule,
     PaymentModule,
+    AiModule,
   ],
   controllers: [],
   providers: [],

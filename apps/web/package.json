@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@cinema/shared": "workspace:*",
+    "@stripe/react-stripe-js": "^3.1.1",
+    "@stripe/stripe-js": "^5.6.0",
     "@tanstack/react-query": "^5.99.2",
     "axios": "^1.15.2",
     "clsx": "^2.1.1",
@@ -18,10 +20,9 @@
     "next": "15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
     "socket.io-client": "^4.8.3",
-    "tailwind-merge": "^2.5.5",
-    "@stripe/stripe-js": "^5.6.0",
-    "@stripe/react-stripe-js": "^3.1.1"
+    "tailwind-merge": "^2.5.5"
   },
   "devDependencies": {
     "@types/node": "^20",
