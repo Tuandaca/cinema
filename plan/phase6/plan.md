@@ -7,9 +7,9 @@ Nâng tầm ứng dụng với trí tuệ nhân tạo. AI không chỉ tư vấn
 ## 🔍 Phạm vi thực hiện (Scope)
 
 ### 1. Chatbot Backend Integration
-- Tích hợp OpenAI GPT-4o API.
-- Định nghĩa các "Functions" (Tools) cho AI: `searchMovies`, `getShowtimes`, `quickBookSession`.
-- Quản lý History hội thoại theo `sessionId` của User.
+- Tích hợp Gemini 2.5 Flash API (Vercel AI SDK).
+- Định nghĩa 10 "Functions" (Tools) cho AI: `searchMovies`, `getShowtimes`, `getMovieDetails`, `getSeatAvailability`, `getCombos`, v.v.
+- Quản lý History hội thoại theo `sessionId` và `userId` trong PostgreSQL.
 
 ### 2. AI UI & Mood Logic
 - Floating Chat UI mượt mà với Framer Motion.

@@ -1,6 +1,6 @@
 # 🎬 Cinema - Modern AI-Powered Booking App
 
-> **Portfolio-Grade Cinema Booking Platform** built with **Next.js 15**, **NestJS**, and **OpenAI**. Designed for hyper-performance, real-time seat selection, and intuitive AI-assisted experiences.
+> **Portfolio-Grade Cinema Booking Platform** built with **Next.js 15**, **NestJS**, and **Gemini 2.5 Flash**. Designed for hyper-performance, real-time seat selection, and intuitive AI-assisted experiences.
 
 ---
 
@@ -47,12 +47,12 @@ Toàn bộ tài liệu đặc tả dự án được lưu trữ trong thư mục
 ## 🚥 Roadmap (Lộ trình phát triển)
 
 - [x] **Phase 1: System Design & Architecture** (Hoàn thành)
-- [ ] **Phase 2: Backend Foundation** (Đang triển khai)
-- [ ] **Phase 3: Frontend Core UI**
-- [ ] **Phase 4: Real-time Seat Booking**
-- [ ] **Phase 5: Payment & Invoice**
-- [ ] **Phase 6: AI Assistant Integration**
-- [ ] **Phase 7: Admin Dashboard**
+- [x] **Phase 2: Backend Foundation** (Hoàn thành)
+- [x] **Phase 3: Frontend Core UI** (Hoàn thành)
+- [x] **Phase 4: Real-time Seat Booking** (Hoàn thành)
+- [x] **Phase 5: Payment & Invoice** (Hoàn thành)
+- [x] **Phase 6: AI Assistant Integration** (Hoàn thành - Gemini 2.5 Flash)
+- [/] **Phase 7: Admin Dashboard** (Đang triển khai)
 - [ ] **Phase 8: Optimization & Deployment**
 
 ---

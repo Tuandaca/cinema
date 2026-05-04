@@ -11,9 +11,9 @@ async function bootstrap() {
     crossOriginResourcePolicy: false,
   }));
   app.enableCors({
-    origin: true,
+    origin: '*',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    credentials: true,
+    credentials: false,
   });
 
   // Global Prefix

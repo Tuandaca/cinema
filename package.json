@@ -10,8 +10,11 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
-    "turbo": "^2.4.4",
-    "prettier": "^3.5.3"
+    "prettier": "^3.5.3",
+    "turbo": "^2.4.4"
   },
-  "packageManager": "pnpm@10.5.2"
+  "packageManager": "pnpm@10.5.2",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1"
+  }
 }

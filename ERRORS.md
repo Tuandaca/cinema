@@ -40,10 +40,18 @@
 
 ---
 
-## [2026-05-03 22:50] - Port Conflict & Ghost Processes (STILL PENDING)
+## [2026-05-03 22:50] - Port Conflict & Ghost Processes
 - **Type**: Environment
 - **Severity**: Critical
-- **File**: N/A
-- **Root Cause**: Các tiến trình node cũ chiếm dụng port 3000/3001 khiến Frontend gọi sai phiên bản Backend hoặc bị treo (Pending).
-- **Fix Proposed**: Cần chạy `taskkill /f /im node.exe` và đảm bảo cả 2 app chạy đúng port 3000/3001.
-- **Status**: Investigating.
+- **Fix Applied**: Đã thêm lệnh `taskkill /F /IM node.exe` vào quy trình khởi động server (`pnpm dev`) để đảm bảo không còn process node "ma".
+- **Status**: Fixed.
+
+---
+
+## [2026-05-05 03:30] - Gemini API Rate Limit (Quota Exceeded)
+- **Type**: Runtime/Quota
+- **Severity**: High
+- **File**: `apps/api/src/ai/ai.service.ts`
+- **Root Cause**: Tài khoản Gemini Free Tier bị giới hạn 1500 request/ngày và 10 RPM. Khi test liên tục sẽ gây lỗi 429 (Internal Server Error 500 nếu không bắt).
+- **Fix Applied**: Thêm khối `catch` bắt các lỗi liên quan đến `quota/rate/429` trong `AiService.chat()`. Trả về một tin nhắn thân thiện bằng tiếng Việt cho người dùng thay vì báo lỗi hệ thống.
+- **Status**: Fixed (Handling Implemented).
