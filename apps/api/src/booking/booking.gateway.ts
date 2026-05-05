@@ -23,6 +23,7 @@ export class BookingGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
   private logger: Logger = new Logger('BookingGateway');
   private socketToUser: Map<string, string> = new Map();
+  private userToSocketCount: Map<string, number> = new Map();
 
   constructor(private bookingService: BookingService) {}
 
@@ -35,14 +36,19 @@ export class BookingGateway implements OnGatewayConnection, OnGatewayDisconnect 
     const userId = this.socketToUser.get(client.id);
     if (userId) {
       this.socketToUser.delete(client.id);
-      // Optional: Check if user has other active sockets before releasing?
-      // For simplicity, we release all locks for this user.
-      await this.bookingService.releaseAllUserLocks(userId);
       
-      // Notify other clients in all rooms this client was in
-      // Actually, we should broadcast that seats are now available
-      // For now, clients will refresh status if we emit a global or room event
-      this.server.emit('user_disconnected', { userId });
+      const currentCount = this.userToSocketCount.get(userId) || 0;
+      const newCount = Math.max(0, currentCount - 1);
+      
+      if (newCount === 0) {
+        this.userToSocketCount.delete(userId);
+        this.logger.log(`User ${userId} has no more active connections. Releasing locks.`);
+        await this.bookingService.releaseAllUserLocks(userId);
+        this.server.emit('user_disconnected', { userId });
+      } else {
+        this.userToSocketCount.set(userId, newCount);
+        this.logger.log(`User ${userId} still has ${newCount} active connections. Keeping locks.`);
+      }
     }
   }
 
@@ -54,6 +60,8 @@ export class BookingGateway implements OnGatewayConnection, OnGatewayDisconnect 
     client.join(data.showtimeId);
     if (data.userId) {
       this.socketToUser.set(client.id, data.userId);
+      const count = this.userToSocketCount.get(data.userId) || 0;
+      this.userToSocketCount.set(data.userId, count + 1);
     }
     this.logger.log(`Client ${client.id} (User: ${data.userId}) joined showtime ${data.showtimeId}`);
     return { event: 'joined', data: data.showtimeId };

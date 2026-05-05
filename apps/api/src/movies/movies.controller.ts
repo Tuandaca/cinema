@@ -23,6 +23,11 @@ export class MoviesController {
     return this.moviesService.findOne(id);
   }
 
+  @Get(':id/showtimes')
+  async getShowtimes(@Param('id') id: string) {
+    return this.moviesService.getShowtimes(id);
+  }
+
   @Post('sync')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)

@@ -5,6 +5,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { bookingService } from '@/services/booking.service';
 import { ArrowLeft, Popcorn, Ticket, CreditCard, QrCode, Wallet, CheckCircle2 } from 'lucide-react';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { useAuth } from '@/providers/AuthProvider';
 
 function StripeForm({ onSuccess }: { onSuccess: () => void }) {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -49,6 +51,7 @@ function StripeForm({ onSuccess }: { onSuccess: () => void }) {
 }
 
 function CheckoutContent() {
+  const { token } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
   
@@ -56,7 +59,14 @@ function CheckoutContent() {
   const seatsParam = searchParams.get('seats');
   const seatIds = seatsParam ? seatsParam.split(',') : [];
 
-  const [timeLeft, setTimeLeft] = useState<number>(300);
+  const [timeLeft, setTimeLeft] = useState<number>(() => {
+    const storedTime = typeof window !== 'undefined' ? localStorage.getItem(`booking_start_${showtimeId}`) : null;
+    if (storedTime) {
+      const elapsed = Math.floor((Date.now() - parseInt(storedTime)) / 1000);
+      return Math.max(0, 300 - elapsed);
+    }
+    return 300;
+  });
   const [selectedCombos, setSelectedCombos] = useState<{ comboId: string; quantity: number }[]>([]);
   const [activeTab, setActiveTab] = useState<'CARD' | 'QR' | 'SAVED'>('CARD');
   
@@ -178,7 +188,8 @@ function CheckoutContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background pt-24 pb-12">
+    <ProtectedRoute>
+      <div className="min-h-screen bg-background pt-24 pb-12">
       <div className="container mx-auto px-4 max-w-6xl">
         <button 
           onClick={() => router.back()} 
@@ -366,6 +377,7 @@ function CheckoutContent() {
         </div>
       </div>
     </div>
+    </ProtectedRoute>
   );
 }
 

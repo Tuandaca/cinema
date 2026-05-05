@@ -1,6 +1,4 @@
-import { fetchWithAuth } from './movie.service'; // We need a way to do auth fetch, let's just use native fetch for now or a custom one if available
-
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const BASE_URL = '/api';
 const API_URL = BASE_URL.endsWith('/api') ? BASE_URL : `${BASE_URL}/api`;
 
 export interface Seat {

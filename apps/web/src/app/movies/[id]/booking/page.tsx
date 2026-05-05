@@ -7,14 +7,18 @@ import SeatGrid from '@/components/movies/SeatGrid';
 
 // Note: In Next.js 15 App router, params is a promise but since this is a client component
 // we can use standard React.use if needed, but often params are directly accessible or we use useParams
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Calendar, Clock, MapPin } from 'lucide-react';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { useAuth } from '@/providers/AuthProvider';
 
 export default function BookingPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
-  const showtimeId = params.id as string;
+  const showtimeId = searchParams.get('showtimeId') as string;
   
+  const { token } = useAuth();
   const [selectedSeatIds, setSelectedSeatIds] = useState<string[]>([]);
   const [isLocking, setIsLocking] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -67,11 +71,9 @@ export default function BookingPage() {
   });
 
   const handleLockSeats = async () => {
-    if (selectedSeatIds.length === 0) return;
+    if (selectedSeatIds.length === 0 || !token) return;
     setIsLocking(true);
     try {
-      // Dummy token for now
-      const token = 'dummy-jwt-token';
       await bookingService.lockSeats(showtimeId, selectedSeatIds, token);
       // Redirect to checkout
       const seatsQuery = selectedSeatIds.join(',');
@@ -88,7 +90,8 @@ export default function BookingPage() {
   if (!seats || !showtime) return <div className="min-h-screen flex items-center justify-center">Data not found</div>;
 
   return (
-    <div className="min-h-screen bg-background pt-24 pb-12">
+    <ProtectedRoute>
+      <div className="min-h-screen bg-background pt-24 pb-12">
       <div className="container mx-auto px-4 max-w-5xl">
         {/* Movie Info Banner */}
         <div className="mb-8 flex flex-col md:flex-row gap-6 items-center bg-zinc-900/50 p-6 rounded-2xl border border-white/5 backdrop-blur-md">
@@ -151,5 +154,6 @@ export default function BookingPage() {
         </div>
       </div>
     </div>
+    </ProtectedRoute>
   );
 }

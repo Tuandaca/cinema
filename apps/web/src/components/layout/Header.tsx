@@ -3,11 +3,15 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, User, Menu, X } from 'lucide-react';
+import { Search, User, Menu, X, LogOut, LayoutDashboard } from 'lucide-react';
+import { CINEMA_APP_NAME } from '@cinema/shared';
+import { useAuth } from '@/providers/AuthProvider';
 
 const Header = () => {
+  const { user, isAuthenticated, logout } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -33,8 +37,8 @@ const Header = () => {
       <div className="container mx-auto px-6 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
-          <span className="text-4xl font-headline font-bold text-coicine-gold tracking-tighter">
-            COI<span className="text-white">CINE</span>
+          <span className="text-3xl font-headline font-bold text-coicine-gold tracking-tighter uppercase">
+            {CINEMA_APP_NAME.split(' ')[0]}<span className="text-white">{CINEMA_APP_NAME.split(' ').slice(1).join(' ')}</span>
           </span>
         </Link>
 
@@ -56,10 +60,57 @@ const Header = () => {
           <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
             <Search size={20} />
           </button>
-          <Link href="/auth/login" className="hidden md:flex items-center gap-2 px-4 py-2 bg-coicine-gold text-black rounded-full text-sm font-bold hover:bg-yellow-400 transition-all transform hover:scale-105">
-            <User size={18} />
-            Login
-          </Link>
+
+          {isAuthenticated ? (
+            <div className="relative">
+              <button 
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all"
+              >
+                <div className="w-6 h-6 bg-coicine-gold rounded-full flex items-center justify-center text-black text-xs font-bold">
+                  {user?.name?.[0].toUpperCase()}
+                </div>
+                <span className="hidden md:inline text-sm font-medium">{user?.name}</span>
+              </button>
+
+              <AnimatePresence>
+                {isUserMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute right-0 mt-3 w-56 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50"
+                  >
+                    <div className="p-4 border-b border-white/5">
+                      <p className="text-xs text-white/40 uppercase font-bold tracking-wider mb-1">Signed in as</p>
+                      <p className="font-bold truncate">{user?.email}</p>
+                    </div>
+                    <div className="p-2">
+                      {user?.role === 'ADMIN' && (
+                        <Link href="/admin" className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 rounded-xl transition-colors text-cyan-400">
+                          <LayoutDashboard size={18} />
+                          Admin Dashboard
+                        </Link>
+                      )}
+                      <button 
+                        onClick={logout}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 text-red-400 rounded-xl transition-colors"
+                      >
+                        <LogOut size={18} />
+                        Logout
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          ) : (
+            <Link href="/auth/login" className="hidden md:flex items-center gap-2 px-6 py-2 bg-coicine-gold text-black rounded-full text-sm font-bold hover:bg-yellow-400 transition-all transform hover:scale-105">
+              <User size={18} />
+              Login
+            </Link>
+          )}
+
           <button 
             className="md:hidden p-2 hover:bg-white/10 rounded-full"
             onClick={() => setIsMobileMenuOpen(true)}
@@ -100,14 +151,24 @@ const Header = () => {
             </nav>
 
             <div className="mt-auto">
-              <Link 
-                href="/auth/login" 
-                className="flex items-center justify-center gap-2 w-full py-4 bg-coicine-gold text-black rounded-xl text-lg font-bold"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <User size={20} />
-                Login
-              </Link>
+              {isAuthenticated ? (
+                <button 
+                  onClick={logout}
+                  className="flex items-center justify-center gap-2 w-full py-4 bg-red-500/20 text-red-500 rounded-xl text-lg font-bold"
+                >
+                  <LogOut size={20} />
+                  Logout
+                </button>
+              ) : (
+                <Link 
+                  href="/auth/login" 
+                  className="flex items-center justify-center gap-2 w-full py-4 bg-coicine-gold text-black rounded-xl text-lg font-bold"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <User size={20} />
+                  Login
+                </Link>
+              )}
             </div>
           </motion.div>
         )}

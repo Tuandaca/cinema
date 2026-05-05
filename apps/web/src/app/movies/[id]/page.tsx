@@ -1,20 +1,42 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { movieService } from '@/services/movie.service';
-import { Star, Clock, Calendar, Globe, Play, Ticket, ArrowLeft, Loader2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Star, Clock, Calendar, Globe, Play, Ticket, ArrowLeft, Loader2, MapPin, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import axios from 'axios';
+
+const API_URL = '/api';
+
+interface Showtime {
+  id: string;
+  startTime: string;
+  endTime: string;
+  priceBase: number;
+  room: { name: string; capacity: number };
+}
 
 const MovieDetailPage = () => {
   const { id } = useParams();
   const router = useRouter();
+  const [showShowtimes, setShowShowtimes] = useState(false);
 
   const { data: movie, isLoading, isError } = useQuery({
     queryKey: ['movie', id],
     queryFn: () => movieService.getMovieById(id as string),
     enabled: !!id,
+  });
+
+  const { data: showtimes, isLoading: showtimesLoading } = useQuery<Showtime[]>({
+    queryKey: ['showtimes', id],
+    queryFn: async () => {
+      // Fetch showtimes for this movie using the corrected endpoint
+      const showtimeRes = await axios.get(`${API_URL}/movies/${id}/showtimes`);
+      return showtimeRes.data;
+    },
+    enabled: !!id && showShowtimes,
   });
 
   if (isLoading) {
@@ -40,6 +62,14 @@ const MovieDetailPage = () => {
       </div>
     );
   }
+
+  const handleBookClick = () => {
+    setShowShowtimes(true);
+  };
+
+  const handleSelectShowtime = (showtimeId: string) => {
+    router.push(`/movies/${id}/booking?showtimeId=${showtimeId}`);
+  };
 
   return (
     <div className="relative min-h-screen w-full bg-coicine-charcoal">
@@ -141,7 +171,7 @@ const MovieDetailPage = () => {
 
               <div className="flex flex-wrap gap-4">
                 <button 
-                  onClick={() => router.push('/movies/test-showtime-1/booking')}
+                  onClick={handleBookClick}
                   className="flex items-center gap-3 px-10 py-5 bg-coicine-gold text-black rounded-full font-bold hover:bg-yellow-400 transition-all transform hover:scale-105 shadow-[0_0_30px_rgba(255,215,0,0.3)]"
                 >
                   <Ticket size={24} />
@@ -159,6 +189,62 @@ const MovieDetailPage = () => {
                   </a>
                 )}
               </div>
+
+              {/* Showtimes Section */}
+              <AnimatePresence>
+                {showShowtimes && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mt-10"
+                  >
+                    <h3 className="text-2xl font-headline font-bold mb-6 flex items-center gap-3">
+                      <Calendar className="text-coicine-gold" size={24} />
+                      Available Showtimes
+                    </h3>
+                    {showtimesLoading ? (
+                      <div className="flex items-center gap-3 text-gray-400">
+                        <Loader2 className="animate-spin" size={20} />
+                        Loading showtimes...
+                      </div>
+                    ) : showtimes && showtimes.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {showtimes.map((st) => (
+                          <button
+                            key={st.id}
+                            onClick={() => handleSelectShowtime(st.id)}
+                            className="group flex items-center justify-between p-5 bg-zinc-900/60 rounded-xl border border-white/5 hover:border-coicine-gold/30 hover:bg-zinc-800/60 transition-all"
+                          >
+                            <div className="text-left">
+                              <p className="text-white font-bold mb-1">
+                                {new Date(st.startTime).toLocaleDateString('vi-VN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                              </p>
+                              <p className="text-coicine-gold font-mono text-lg">
+                                {new Date(st.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {' — '}
+                                {new Date(st.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                              <div className="flex items-center gap-2 mt-2 text-white/50 text-sm">
+                                <MapPin size={14} /> {st.room.name}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-cyan-400 font-bold text-xl">${st.priceBase}</p>
+                              <ChevronRight size={20} className="text-white/30 group-hover:text-coicine-gold transition-colors ml-auto mt-1" />
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-6 bg-zinc-900/40 rounded-xl border border-white/5 text-center text-gray-400">
+                        <p className="mb-2">Chưa có suất chiếu cho phim này.</p>
+                        <p className="text-sm text-white/30">Vui lòng quay lại sau hoặc liên hệ rạp.</p>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           </div>
         </div>

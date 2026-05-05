@@ -15,12 +15,35 @@ export interface SeatStatus {
 export class BookingService {
   private readonly logger = new Logger(BookingService.name);
   private readonly redis: Redis;
+  private redisAvailable = false;
 
   constructor(private prisma: PrismaService) {
     const redisUrl = process.env.UPSTASH_REDIS_URL || process.env.REDIS_URL || 'redis://localhost:6379';
-    this.redis = new Redis(redisUrl);
-    this.redis.on('error', (err) => this.logger.error('Redis Client Error', err));
-    this.redis.on('connect', () => this.logger.log('Connected to Redis'));
+    this.redis = new Redis(redisUrl, {
+      maxRetriesPerRequest: 3,
+      retryStrategy: (times) => {
+        if (times > 3) {
+          this.logger.warn('Redis connection failed after 3 retries. Seat locking will be unavailable.');
+          return null; // Stop retrying
+        }
+        return Math.min(times * 500, 5000);
+      },
+      lazyConnect: true,
+    });
+    this.redis.on('error', (err) => this.logger.error('Redis Client Error', err.message));
+    this.redis.on('connect', () => {
+      this.redisAvailable = true;
+      this.logger.log('✅ Connected to Redis');
+    });
+    this.redis.on('close', () => {
+      this.redisAvailable = false;
+      this.logger.warn('⚠️ Redis connection closed');
+    });
+
+    // Attempt connection (non-blocking)
+    this.redis.connect().catch((err) => {
+      this.logger.warn(`⚠️ Redis not available: ${err.message}. Seat locking features will be degraded.`);
+    });
   }
 
   // 5 minutes lock
@@ -346,6 +369,14 @@ export class BookingService {
         },
       },
     });
+
+    // RELEASE REDIS LOCKS IMMEDIATELY after successful DB creation
+    try {
+      await this.releaseLocks(showtimeId, seatIds, userId);
+      this.logger.log(`Released locks for seats ${seatIds.join(', ')} after booking ${booking.id}`);
+    } catch (err) {
+      this.logger.error(`Failed to release locks after booking: ${err.message}`);
+    }
 
     return booking;
   }

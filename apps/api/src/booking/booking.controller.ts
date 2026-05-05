@@ -20,26 +20,26 @@ export class BookingController {
     return this.bookingService.getSeatsStatus(id);
   }
 
-  // @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Post(':id/lock')
   async lockSeats(
     @Param('id') showtimeId: string,
     @Body() body: { seatIds: string[] },
     @Req() req: any,
   ) {
-    const userId = req.user?.userId || 'test-user-id';
+    const userId = req.user.id;
     await this.bookingService.lockSeats(showtimeId, body.seatIds, userId);
     this.bookingGateway.notifySeatsLocked(showtimeId, body.seatIds, userId);
     return { success: true, message: 'Seats locked successfully' };
   }
 
-  // Phase 5: Create Booking with Combos
+  @UseGuards(JwtAuthGuard)
   @Post('bookings')
   async createBooking(
     @Body() body: { showtimeId: string; seatIds: string[]; combos: { comboId: string; quantity: number }[] },
     @Req() req: any,
   ) {
-    const userId = req.user?.userId || 'test-user-id'; // Mock user
+    const userId = req.user.id;
     return this.bookingService.createBooking(userId, body.showtimeId, body.seatIds, body.combos);
   }
 }

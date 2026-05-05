@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const BASE_URL = '/api';
 const API_URL = BASE_URL.endsWith('/api') ? BASE_URL : `${BASE_URL}/api`;
+console.log('🎬 MovieService using API_URL:', API_URL);
 
 export interface Genre {
   id: string;

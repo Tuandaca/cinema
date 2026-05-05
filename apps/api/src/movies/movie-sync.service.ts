@@ -71,7 +71,7 @@ export class MovieSyncService {
         description: overview,
         trailerUrl: trailer,
         posterUrl: poster,
-        rating: rating || details.omdbRating ? parseFloat(details.omdbRating) : undefined,
+        rating: rating ?? (details.omdbRating ? parseFloat(details.omdbRating) : undefined),
         runtime,
         released: released ? new Date(released) : undefined,
         certification,

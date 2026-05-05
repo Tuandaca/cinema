@@ -283,8 +283,9 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
               'Kiểm tra ghế trống cho một suất chiếu. Trả về thống kê số ghế trống, đã đặt, đang giữ. Dùng khi user hỏi "còn ghế không?", "ghế trống suất chiếu X?"',
             parameters: z.object({
               showtimeId: z.string().describe('ID của suất chiếu cần kiểm tra ghế'),
+              movieId: z.string().describe('ID của phim để tạo link đặt vé'),
             }),
-            execute: async ({ showtimeId }: { showtimeId: string }) => {
+            execute: async ({ showtimeId, movieId }: { showtimeId: string; movieId: string }) => {
               try {
                 const seats = await this.bookingService.getSeatsStatus(showtimeId);
                 const total = seats.length;
@@ -305,7 +306,7 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
                   locked,
                   vipAvailable,
                   normalAvailable,
-                  bookingLink: `/movies/booking?showtimeId=${showtimeId}`,
+                  bookingLink: `/movies/${movieId}/booking?showtimeId=${showtimeId}`,
                 };
               } catch {
                 return { error: 'Không tìm thấy suất chiếu hoặc lỗi khi kiểm tra ghế.' };

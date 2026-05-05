@@ -15,6 +15,7 @@ const outfit = Outfit({
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import QueryProvider from "@/providers/QueryProvider";
+import { AuthProvider } from "@/providers/AuthProvider";
 import { SocketProvider } from "@/providers/SocketProvider";
 import { FloatingChatbot } from "@/components/ai/FloatingChatbot";
 
@@ -32,14 +33,16 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={`${inter.variable} ${outfit.variable} antialiased bg-background text-foreground`}>
         <QueryProvider>
-          <SocketProvider>
-            <Header />
-            <main className="min-h-screen">
-              {children}
-            </main>
-            <Footer />
-            <FloatingChatbot />
-          </SocketProvider>
+          <AuthProvider>
+            <SocketProvider>
+              <Header />
+              <main className="min-h-screen">
+                {children}
+              </main>
+              <Footer />
+              <FloatingChatbot />
+            </SocketProvider>
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>
