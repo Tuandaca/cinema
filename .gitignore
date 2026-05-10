@@ -61,9 +61,12 @@ venv/
 .venv/
 ENV/
 
-# Temporary files
+# Temporary and test files
 tmp/
 temp/
+scratch/
+test-*.js
+*-test.js
 *.tmp
 *.temp
 

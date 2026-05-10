@@ -8,7 +8,7 @@ async function main() {
   
   const showtime = await prisma.showtime.create({
     data: {
-      id: 'test-showtime-1',
+      id: `test-showtime-${Date.now()}`,
       movieId: movieId,
       roomId: roomId,
       startTime: new Date(Date.now() + 3600000), // 1 hour later

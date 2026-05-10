@@ -20,9 +20,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    // Connect to the backend booking namespace
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-    const socketInstance = io(`${baseUrl}/booking`, {
+    // Connect to the backend booking namespace directly to avoid Next.js proxy issues with WebSockets
+    const backendUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://127.0.0.1:3006';
+    const socketInstance = io(`${backendUrl}/booking`, {
       transports: ['websocket'],
     });
 

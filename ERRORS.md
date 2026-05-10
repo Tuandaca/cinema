@@ -55,3 +55,33 @@
 - **Root Cause**: Tài khoản Gemini Free Tier bị giới hạn 1500 request/ngày và 10 RPM. Khi test liên tục sẽ gây lỗi 429 (Internal Server Error 500 nếu không bắt).
 - **Fix Applied**: Thêm khối `catch` bắt các lỗi liên quan đến `quota/rate/429` trong `AiService.chat()`. Trả về một tin nhắn thân thiện bằng tiếng Việt cho người dùng thay vì báo lỗi hệ thống.
 - **Status**: Fixed (Handling Implemented).
+
+---
+
+## [2026-05-10 16:55] - Empty Showtimes (Booking Blocker)
+- **Type**: Integration/Data
+- **Severity**: Critical
+- **File**: Database / `apps/api/src/movies/movies.service.ts`
+- **Root Cause**: No active showtimes available in the system for the current date, blocking the entire booking flow.
+- **Fix Applied**: Pending. Need to write a database seed script or API to generate showtimes dynamically.
+- **Status**: Investigating
+
+---
+
+## [2026-05-10 16:58] - AI Chatbot 500 Internal Server Error
+- **Type**: Runtime/Integration
+- **Severity**: High
+- **File**: `apps/api/src/ai/ai.controller.ts`
+- **Root Cause**: Database migration missing. `PrismaClientKnownRequestError: The column User.stripeCustomerId does not exist in the current database`. The schema was updated but `npx prisma db push` was not run.
+- **Fix Applied**: Need to run `npx prisma db push` to sync the database schema.
+- **Status**: Identified
+
+---
+
+## [2026-05-10 17:00] - WebSocket Connection Refused
+- **Type**: Integration/Network
+- **Severity**: High
+- **File**: `apps/web/src/components/booking/SeatGrid.tsx`
+- **Root Cause**: Frontend attempting to connect to `ws://localhost:3005` (Next.js port) instead of the NestJS WebSocket Gateway port (`3006`).
+- **Fix Applied**: Pending. Update Socket.io client configuration to use the correct `API_URL`.
+- **Status**: Investigating
