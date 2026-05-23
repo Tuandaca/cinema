@@ -76,7 +76,8 @@ export class AiService {
     let result: any;
     try {
       result = await generateText({
-        model: google('gemini-1.5-flash'),
+        model: google('gemini-2.5-flash'),
+        maxSteps: 5,
         system: `Bạn là **CoiCine AI Buddy** – trợ lý rạp chiếu phim thông minh của nền tảng CoiCine.
 Hôm nay là ${dateStr}.
 
@@ -89,6 +90,11 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
 - Kiểm tra ghế trống trước khi đặt
 - Giải đáp mọi câu hỏi liên quan đến rạp
 
+## Lưu ý về ngôn ngữ và Dữ liệu trong Database:
+- Database lưu trữ tiêu đề (title), mô tả (description) và thể loại (genre) của các bộ phim bằng **tiếng Anh** (Ví dụ thể loại: Action, Sci-Fi, Adventure, Thriller, Drama, Comedy, Romance, Animation, Horror, Mystery, Family).
+- Khi người dùng hỏi bằng tiếng Việt (ví dụ: "phim tình cảm và hài hước"), bạn phải **tự động dịch hoặc ánh xạ** sang tiếng Anh tương ứng để gọi tool (ví dụ: gọi 'getMoviesByGenre' với tham số 'genre: "Romance"' hoặc 'genre: "Comedy"', hoặc tìm kiếm bằng tiếng Anh tương đương).
+- Sau khi nhận được dữ liệu từ các tool, bạn phải **tổng hợp, dịch lại và trả lời người dùng một cách thân thiện bằng tiếng Việt**, giới thiệu phim và hướng dẫn đặt vé tận tình. KHÔNG được chỉ trả về danh sách trống hoặc hiển thị thẻ giao diện (UI Card) mà không nói gì.
+
 ## Nguyên tắc PHẢI tuân thủ
 1. **LUÔN gọi tool** khi cần dữ liệu thực. KHÔNG bịa ra tên phim, giá vé, suất chiếu.
 2. **Gợi ý thông minh**: Khi user hỏi chung chung ("tôi muốn xem phim gì hay"), hãy hỏi thêm sở thích hoặc dùng getTopRatedMovies.
@@ -97,6 +103,9 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
 5. **Phản hồi bằng tiếng Việt**, thân thiện, tự nhiên, đậm chất điện ảnh. Dùng emoji phù hợp.
 6. **Không tự đặt vé / thanh toán**. Chỉ hướng dẫn và cung cấp link.
 7. Khi không tìm thấy kết quả, gợi ý phương án thay thế.
+8. **KHÔNG BAO GIỜ để trống câu trả lời**. Nếu bạn hiển thị danh sách phim, hãy MÔ TẢ và GIỚI THIỆU bằng lời văn của bạn trước.
+9. **XỬ LÝ KHI TÌM KHÔNG THẤY PHIM**: Nếu user hỏi phim theo thể loại (vd: tình cảm, kinh dị) mà rạp không có, bạn phải xin lỗi người dùng và **NGAY LẬP TỨC GỌI TOOL getTopRatedMovies** để hiển thị các phim hot thay thế. TUYỆT ĐỐI KHÔNG ĐƯỢC hỏi "Bạn có muốn tôi gợi ý không?", mà phải TỰ ĐỘNG gọi tool và trả về danh sách luôn.
+10. **GHI NHỚ NGỮ CẢNH (QUAN TRỌNG)**: Vì hệ thống chỉ lưu lại văn bản bạn chat, nên khi bạn tìm thấy phim hoặc suất chiếu, bạn **PHẢI KỂ TÊN cụ thể các phim/suất chiếu đó** vào trong nội dung trả lời của bạn. Đừng chỉ nói "Dưới đây là các phim:", hãy nói "Dưới đây là các phim: Dune, Deadpool...". Việc này giúp bạn nhớ được mình vừa nói gì ở lượt chat sau.
 
 ## Cấu trúc website CoiCine (để hướng dẫn user)
 - Trang chủ: /
@@ -127,7 +136,9 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
             parameters: z.object({
               query: z.string().describe('Từ khóa tìm kiếm (tên phim, keyword, mô tả)'),
             }),
-            execute: async ({ query }: { query: string }) => {
+            execute: async (args: any) => {
+              const query = args?.query;
+              if (!query) return [];
               const movies = await this.moviesService.search(query);
               return movies.map((m) => ({
                 id: m.id,
@@ -148,7 +159,9 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
             parameters: z.object({
               movieId: z.string().describe('ID của bộ phim cần xem chi tiết'),
             }),
-            execute: async ({ movieId }: { movieId: string }) => {
+            execute: async (args: any) => {
+              const movieId = args?.movieId;
+              if (!movieId) return { error: 'Không tìm thấy phim' };
               const movie = await this.moviesService.findOne(movieId);
               if (!movie) return { error: 'Không tìm thấy phim' };
               return {
@@ -219,7 +232,7 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
             parameters: z.object({
               limit: z.number().optional().describe('Số lượng phim muốn lấy (mặc định 5)'),
             }),
-            execute: async ({ limit }: { limit?: number }) => {
+            execute: async ({ limit }: { limit?: number } = {}) => {
               const movies = await this.prisma.movie.findMany({
                 include: { genres: true },
                 orderBy: { rating: 'desc' },
@@ -239,11 +252,12 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
 
           getMoviesByGenre: {
             description:
-              'Lấy danh sách phim theo thể loại. Dùng khi user muốn xem phim theo thể loại cụ thể (Action, Comedy, Drama, Horror, Sci-Fi, v.v.)',
+              'Lấy danh sách phim theo thể loại. BẠN PHẢI DỊCH THỂ LOẠI SANG TIẾNG ANH (Ví dụ: tình cảm -> Romance, hài hước -> Comedy, kinh dị -> Horror, hành động -> Action, khoa học viễn tưởng -> Sci-Fi, hoạt hình -> Animation). BẮT BUỘC PHẢI CHỌN TỪ DANH SÁCH ENUM. Nếu không có thể loại phù hợp, hãy gọi getTopRatedMovies thay thế.',
             parameters: z.object({
-              genre: z.string().describe('Tên thể loại (ví dụ: Action, Comedy, Drama, Horror, Sci-Fi, Romance, Animation, Thriller)'),
+              genre: z.enum(['Romance', 'Action', 'Comedy', 'Drama', 'Horror', 'Sci-Fi', 'Animation', 'Thriller', 'Adventure', 'Family', 'Mystery', 'Crime', 'Fantasy']).describe('Thể loại phim bằng tiếng Anh. Bắt buộc chọn 1 giá trị này.'),
             }),
-            execute: async ({ genre }: { genre: string }) => {
+            execute: async ({ genre }: { genre?: string } = {}) => {
+              if (!genre) return []; // Fallback empty if LLM forgets genre
               const movies = await this.moviesService.findAll(genre);
               return movies.map((m) => ({
                 id: m.id,
@@ -265,7 +279,9 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
             parameters: z.object({
               movieId: z.string().describe('ID của bộ phim cần xem suất chiếu'),
             }),
-            execute: async ({ movieId }: { movieId: string }) => {
+            execute: async (args: any) => {
+              const movieId = args?.movieId;
+              if (!movieId) return [];
               const showtimes = await this.moviesService.getShowtimes(movieId);
               return showtimes.map((st) => ({
                 id: st.id,
@@ -285,7 +301,10 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
               showtimeId: z.string().describe('ID của suất chiếu cần kiểm tra ghế'),
               movieId: z.string().describe('ID của phim để tạo link đặt vé'),
             }),
-            execute: async ({ showtimeId, movieId }: { showtimeId: string; movieId: string }) => {
+            execute: async (args: any) => {
+              const showtimeId = args?.showtimeId;
+              const movieId = args?.movieId;
+              if (!showtimeId || !movieId) return { error: 'Thiếu thông tin suất chiếu' };
               try {
                 const seats = await this.bookingService.getSeatsStatus(showtimeId);
                 const total = seats.length;
@@ -361,13 +380,20 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
             },
           } as any,
         },
-      });
+      } as any);
     } catch (error) {
       this.logger.error(`AI generateText error: ${error.message}`);
       
       // Handle rate limit / quota errors gracefully
       const errMsg = error.message || '';
-      if (errMsg.includes('quota') || errMsg.includes('rate') || errMsg.includes('429') || errMsg.includes('Quota exceeded')) {
+      const isRateLimit = 
+        error.statusCode === 429 ||
+        errMsg.includes('429') ||
+        errMsg.includes('Quota exceeded') ||
+        (errMsg.includes('quota') && !errMsg.includes('generateContent') && !errMsg.includes('generate_content')) ||
+        (errMsg.includes('rate') && !errMsg.includes('generateContent') && !errMsg.includes('generate_content'));
+
+      if (isRateLimit) {
         // Save to DB to keep session alive
         await this.prisma.aIChatMessage.createMany({
           data: [
@@ -384,20 +410,56 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
       throw error;
     }
 
-    const { text, toolResults } = result;
+    const { text, toolResults, steps } = result;
+    this.logger.debug(`generateText completed. steps: ${steps?.length}, text length: ${text?.length}, toolResults length: ${toolResults?.length}`);
+    if (steps) {
+      steps.forEach((s, i) => {
+        const tNames = s.toolCalls?.map(t => `${t.toolName}(${JSON.stringify(t.args)})`).join(', ');
+        this.logger.debug(`Step ${i}: text='${s.text}', tools=[${tNames}]`);
+      });
+    }
+    // 5. Build rich UI cards from tool results
+    const allToolResults = steps ? steps.flatMap((s: any) => s.toolResults || []) : (toolResults || []);
 
-    // 5. Save messages to DB
+    // 5b. If text is empty but we have tool results, do a synthesis step
+    let finalText = text || '';
+    if (!finalText.trim() && allToolResults.length > 0) {
+      this.logger.debug('Text is empty after tool calls, running synthesis step...');
+      const toolSummary = allToolResults
+        .map((r: any) => {
+          const d = r.result || r.output;
+          return `Tool "${r.toolName}" returned: ${JSON.stringify(d).slice(0, 500)}`;
+        })
+        .join('\n');
+      try {
+        const synthesisResult = await generateText({
+          model: google('gemini-2.5-flash'),
+          prompt: `Người dùng hỏi: "${message}"
+
+Dữ liệu từ database:
+${toolSummary}
+
+Hãy tổng hợp và trả lời người dùng một cách thân thiện, ngắn gọn bằng tiếng Việt. Nếu dữ liệu là danh sách phim, hãy giới thiệu 2-3 phim nổi bật và mời người dùng xem thêm. Dùng emoji phù hợp.`,
+        });
+        finalText = synthesisResult.text || 'Mình đã tìm thấy thông tin, bạn xem chi tiết bên dưới nhé! 😊';
+      } catch (e) {
+        this.logger.warn('Synthesis step failed, using fallback text');
+        finalText = 'Mình đã tìm thấy thông tin cho bạn, xem chi tiết bên dưới nhé! 😊';
+      }
+    }
+
+    // 6. Save messages to DB (only save non-empty assistant messages)
     await this.prisma.aIChatMessage.createMany({
       data: [
         { sessionId: session.id, role: 'user', content: message },
-        { sessionId: session.id, role: 'assistant', content: text || '' },
+        { sessionId: session.id, role: 'assistant', content: finalText || 'Mình đã xử lý yêu cầu của bạn rồi nhé!' },
       ],
     });
 
-    // 6. Build rich UI cards from tool results
+    // 7. Build rich UI cards from tool results
     const uiCards: any[] = [];
-    if (toolResults) {
-      for (const res of toolResults) {
+    if (allToolResults.length > 0) {
+      for (const res of allToolResults) {
         const data = res.result || res.output;
 
         switch (res.toolName) {
@@ -444,10 +506,10 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
       }
     }
 
-    this.logger.log(`AI Response (${uiCards.length} cards): ${text?.slice(0, 100)}`);
+    this.logger.log(`AI Response (${uiCards.length} cards): ${finalText?.slice(0, 100)}`);
     return {
       sessionId: session.id,
-      text,
+      text: finalText,
       uiCards,
     };
   }

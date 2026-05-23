@@ -85,3 +85,113 @@
 - **Root Cause**: Frontend attempting to connect to `ws://localhost:3005` (Next.js port) instead of the NestJS WebSocket Gateway port (`3006`).
 - **Fix Applied**: Pending. Update Socket.io client configuration to use the correct `API_URL`.
 - **Status**: Investigating
+
+---
+
+## [2026-05-23 07:48] - Can't Reach Supabase Database Server (DNS Resolution Failed)
+- **Type**: Integration/Environment
+- **Severity**: Critical
+- **File**: `apps/api/.env`
+- **Root Cause**: Lệnh `npx prisma db push` thất bại với lỗi `P1001`. Lệnh kiểm tra mạng báo lỗi phân giải tên miền DNS cho `db.sbhkkfboazxoutfcitzd.supabase.co`. Có khả năng project Supabase đã bị Paused hoặc bị xoá.
+- **Fix Applied**: Người dùng đã vào Supabase Dashboard để khôi phục (Resume) dự án.
+- **Status**: Fixed
+
+---
+
+## [2026-05-23 08:20] - Gemini 1.5 Flash Model Deprecation & False-Positive Catch Block Bug
+- **Type**: Logic/Integration
+- **Severity**: High
+- **File**: `apps/api/src/ai/ai.service.ts`
+- **Agent**: cinemaAgent
+- **Root Cause**: 
+  1. API key hiện tại không còn hỗ trợ model `gemini-1.5-flash` (gây lỗi 404 Not Found từ Google API).
+  2. Đoạn check lỗi `errMsg.includes('rate')` để bắt lỗi Rate Limit bị dính lỗi logic (false-positive), do chuỗi thông báo lỗi trả về chứa tên phương thức `generateContent`, trong đó có chứa từ "rate" (`gene` + `rate` + `Content`). Dẫn đến việc tất cả lỗi 404 Model Not Found đều bị trả về chuỗi "Hệ thống đang quá tải...".
+- **Error Message**:
+  ```json
+  {
+    "status": 404,
+    "data": {
+      "error": {
+        "code": 404,
+        "message": "models/gemini-1.5-flash is not found for API version v1, or is not supported for generateContent. Call ModelService.ListModels to see the list of available models and their supported methods.",
+        "status": "NOT_FOUND"
+      }
+    }
+  }
+  ```
+- **Fix Applied**: 
+  1. Nâng cấp model từ `gemini-1.5-flash` lên `gemini-2.5-flash` (đã test thành công với API key hiện tại).
+  2. Sửa lại khối catch lỗi: phân tách rõ từ khóa "rate" thực sự của Rate Limit với "generateContent" / "generate_content".
+- **Prevention**: Tránh sử dụng `.includes('rate')` đơn lẻ đối với các thông báo lỗi liên quan đến API của Google. Nên check mã trạng thái `error.statusCode === 429` hoặc các cụm từ cụ thể hơn như `rate limit`, `too many requests`.
+- **Status**: Fixed
+
+---
+
+## [2026-05-23 09:00] - AI Assistant Silent Fallback & UI Card Rendering Bug
+- **Type**: Agent/Logic
+- **Severity**: High
+- **File**: `apps/api/src/ai/ai.service.ts`
+- **Agent**: cinemaAgent
+- **Root Cause**: 
+  1. Khi dùng Vercel AI SDK với `maxSteps`, biến `toolResults` được extract từ `result` mặc định chỉ chứa kết quả của vòng lặp cuối cùng. Điều này làm AI không hiển thị được UI Cards nếu tool được gọi ở các bước trước đó.
+  2. Nếu người dùng tìm kiếm phim theo các thể loại không có trong DB (VD: Horror, Romance), tool trả về rỗng. Trước đây AI thường tự hỏi lại người dùng "Bạn có muốn gợi ý phim khác không?" thay vì tự động fallback gọi tool, khiến `uiCards` rỗng và chỉ trả về đoạn hội thoại.
+- **Fix Applied**: 
+  1. Sửa logic trích xuất UI Cards: Dùng mảng `steps.flatMap(s => s.toolResults || [])` để gom toàn bộ kết quả tool từ tất cả các bước thay vì chỉ lấy bước cuối cùng.
+  2. Cập nhật System Prompt: Bắt buộc (Force) AI phải **ngay lập tức** gọi `getTopRatedMovies` khi kết quả rỗng thay vì hỏi lại người dùng.
+- **Prevention**: Khi sử dụng multi-step agent (`maxSteps` > 1) với Vercel AI SDK, luôn trích xuất `toolResults` từ mảng `steps`. System Prompt luôn cần có chỉ thị rõ ràng (Zero-Shot Guidance) để ép LLM thực hiện fallback call mà không xin phép.
+- **Status**: Fixed
+
+---
+
+## [2026-05-23 16:35] - AI Assistant Context Amnesia (Memory Optimization)
+- **Type**: Agent/Logic
+- **Severity**: Medium
+- **File**: `apps/api/src/ai/ai.service.ts`
+- **Agent**: cinemaAgent
+- **Root Cause**: Cơ sở dữ liệu bảng `AIChatMessage` chỉ lưu trữ trường `content` là văn bản text do AI sinh ra, không hề lưu trữ thông tin UI Cards (Dữ liệu từ Tool Results). Vì vậy, khi AI trả về danh sách phim qua UI Cards nhưng không nhắc tên phim trong câu trả lời, ở lượt chat tiếp theo, AI hoàn toàn "mất trí nhớ" và không biết mình vừa giới thiệu những phim gì (Context Amnesia).
+- **Fix Applied**: Thêm **Rule 10 (GHI NHỚ NGỮ CẢNH)** vào System Prompt, bắt buộc AI mỗi khi hiển thị UI Card phải gọi đích danh tên các bộ phim hoặc suất chiếu trong câu chữ của mình. (VD: "Dưới đây là phim: Dune, Deadpool..."). Việc này ép thông tin chạy vào trường `content` và lưu vào DB.
+- **Prevention**: Khi xây dựng hệ thống AI sử dụng UI Cards phong phú (Generative UI) mà DB không hỗ trợ lưu toàn bộ JSON của Tool, bắt buộc phải có Prompt Engineering để ép LLM đưa thông tin khóa (Key info) vào văn bản thuần (Plain Text).
+- **Status**: Fixed
+
+---
+
+## [2026-05-23 18:55] - AI SDK Zod Validation Silent Failure
+- **Type**: Integration/Logic
+- **Severity**: High
+- **File**: `apps/api/src/ai/ai.service.ts`
+- **Agent**: cinemaAgent
+- **Root Cause**: Khi người dùng hỏi các thể loại không cụ thể bằng tiếng Việt (VD: "phim tình cảm"), LLM không tự dịch sang tiếng Anh được nên sinh ra Tool Call với arguments rỗng `{}` (hoặc `genre: undefined`). Do schema `z.string()` yêu cầu bắt buộc, Vercel AI SDK ném lỗi Zod Validation Error ẩn bên dưới, bỏ qua việc chạy hàm `execute`. Kết quả là `toolResults` mang theo lỗi, khiến `res.result` trả về `undefined`, không có UI Card nào được vẽ ra. Đồng thời AI cũng "đứng hình" vì không biết xử lý lỗi này ra sao nên sinh ra `text: ""`.
+- **Fix Applied**: Sửa Zod Schema của `getMoviesByGenre`: 
+  1. Đổi `genre` thành `.optional()`.
+  2. Bổ sung câu Prompt bắt buộc LLM phải tự dịch sang tiếng Anh.
+  3. Trong hàm `execute`, thêm check `if (!genre) return [];`. Nhờ đó nếu LLM có quên biến `genre`, tool vẫn sẽ trả về mảng rỗng `[]` thay vì lỗi, giúp kích hoạt trơn tru rule fallback `getTopRatedMovies`.
+- **Prevention**: Luôn dùng `.optional()` cho các Zod Schema parameters nhận từ LLM nếu có rủi ro LLM không điền đủ dữ liệu, và tự handle validation bên trong block `execute` để duy trì luồng chạy.
+- **Status**: Fixed
+
+---
+
+## [2026-05-23 19:24] - Hot Reload Blocked by Test Scripts
+- **Type**: Process & Test Failure
+- **Severity**: High
+- **File**: `apps/api/test_ai_parse_error.ts` (deleted)
+- **Agent**: cinemaAgent
+- **Root Cause**: Trong quá trình debug, các file test `.ts` nháp được tạo ngay trong thư mục src/apps. Trình biên dịch TypeScript toàn cục của lệnh `nest start --watch` đã quét trúng các file này. Vì các file nháp chứa lỗi cú pháp cố ý để test, trình biên dịch báo lỗi và **từ chối update server**. Do đó, các bản vá lỗi (z.enum, destructuring default) không được cập nhật lên server đang chạy, khiến người dùng liên tục gặp lỗi cũ dù code đã được sửa.
+- **Fix Applied**: Xóa toàn bộ các file `.ts` nháp dùng để test. Khôi phục lại quá trình build thành công.
+- **Prevention**: KHÔNG tạo file nháp mang tính phá vỡ cấu trúc type ngay trong thư mục project chạy watch. Nên đưa vào thư mục tạm hoặc file `.js` độc lập.
+- **Status**: Fixed
+
+---
+
+## [2026-05-23 20:00] - AI Generates Empty Text & Stuck in Loop History
+- **Type**: Agent/Logic
+- **Severity**: High
+- **File**: `apps/api/src/ai/ai.service.ts`
+- **Agent**: cinemaAgent
+- **Root Cause**: 
+  1. **SDK Behavior**: Model Gemini 2.5 Flash có hành vi trả về `finishReason: 'tool-calls'` khi gọi tool và dừng luôn, không kích hoạt bước tiếp theo để tổng hợp câu trả lời bằng tiếng Việt, khiến câu trả lời trả về là chuỗi rỗng `""`.
+  2. **Context Amnesia**: Lỗi chuỗi rỗng `""` này vô tình được lưu vào Database ở vai trò Assistant. Khi người dùng hỏi câu tiếp theo (VD: "Phim hành động hay"), AI đọc lại history thấy lượt trước mình trả về rỗng kèm tool `getTheaterInfo`, nó bị "ảo giác" và lặp lại chính xác tool cũ thay vì xử lý câu lệnh mới.
+- **Fix Applied**: 
+  1. Bổ sung bước **synthesis fallback**: Kiểm tra nếu `text` rỗng sau khi gọi tool, chủ động gọi `generateText` một lần nữa để nhồi kết quả tool vào prompt, ép LLM dịch và tổng hợp thành lời văn.
+  2. Chặn việc lưu chuỗi rỗng: Chỉ lưu content vào Database nếu `finalText` có dữ liệu thực sự.
+- **Prevention**: Luôn có bước post-processing text đối với một số model đặc thù như Gemini 2.5 Flash trong Vercel AI SDK để đảm bảo không trả về text rỗng cho user.
+- **Status**: Fixed
