@@ -195,3 +195,40 @@
   2. Chặn việc lưu chuỗi rỗng: Chỉ lưu content vào Database nếu `finalText` có dữ liệu thực sự.
 - **Prevention**: Luôn có bước post-processing text đối với một số model đặc thù như Gemini 2.5 Flash trong Vercel AI SDK để đảm bảo không trả về text rỗng cho user.
 - **Status**: Fixed
+
+---
+
+## [2026-06-07 11:40] - QA Static Analysis: Payment Endpoint Missing Auth Guard
+- **Type**: Logic/Security
+- **Severity**: High
+- **File**: `apps/api/src/payment/payment.controller.ts`
+- **Agent**: cinemaAgent
+- **Root Cause**: Cả 2 endpoint `POST /payment/:bookingId/intent` và `POST /payment/:bookingId/qr-code` đều không có `@UseGuards(JwtAuthGuard)`. Bất kỳ người dùng nào (kể cả chưa đăng nhập) đều có thể tạo Payment Intent với bookingId bất kỳ.
+- **Fix Applied**: Thêm `@UseGuards(JwtAuthGuard)` vào cả 2 endpoint, import `JwtAuthGuard`.
+- **Prevention**: Tất cả endpoint thay đổi dữ liệu (POST/PUT/DELETE) phải được review auth guard. Cần code review checklist.
+- **Status**: Fixed
+
+---
+
+## [2026-06-07 11:40] - QA Static Analysis: Seat Type Missing 'SELECTING' in Frontend
+- **Type**: Syntax/Type
+- **Severity**: Medium
+- **File**: `apps/web/src/services/booking.service.ts:9`
+- **Agent**: cinemaAgent
+- **Root Cause**: Interface `Seat` ở Frontend khai báo `status: 'AVAILABLE' | 'LOCKED' | 'BOOKED'` nhưng Backend trả về 4 giá trị: `'AVAILABLE' | 'SELECTING' | 'LOCKED' | 'BOOKED'`. TypeScript không bắt lỗi runtime do kiểu dữ liệu không match.
+- **Fix Applied**: Thêm `'SELECTING'` vào union type của `Seat.status`.
+- **Prevention**: Dùng shared types trong package `packages/shared` (Turborepo) để Backend và Frontend luôn dùng chung interface. Tránh define type riêng lẻ ở mỗi phía.
+- **Status**: Fixed
+
+---
+
+## [2026-06-07 11:40] - QA Static Analysis: Debug console.log in Production Code
+- **Type**: Code Quality
+- **Severity**: Low
+- **File**: `apps/web/src/services/movie.service.ts:5`
+- **Agent**: cinemaAgent
+- **Root Cause**: Dòng `console.log('🎬 MovieService using API_URL:', API_URL)` còn sót lại trong code production, gây leak thông tin config ra browser console.
+- **Fix Applied**: Xóa dòng console.log.
+- **Prevention**: Sử dụng linter rule `no-console` hoặc chỉ dùng `process.env.NODE_ENV !== 'production'` guard khi cần debug log.
+- **Status**: Fixed
+

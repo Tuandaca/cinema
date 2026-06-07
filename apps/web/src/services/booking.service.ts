@@ -1,12 +1,11 @@
-const BASE_URL = '/api';
-const API_URL = BASE_URL.endsWith('/api') ? BASE_URL : `${BASE_URL}/api`;
+const API_URL = '/api';
 
 export interface Seat {
   id: string;
   row: string;
   number: number;
   type: string;
-  status: 'AVAILABLE' | 'LOCKED' | 'BOOKED';
+  status: 'AVAILABLE' | 'SELECTING' | 'LOCKED' | 'BOOKED';
   lockedBy?: string;
 }
 
