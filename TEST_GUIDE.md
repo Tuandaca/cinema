@@ -8,19 +8,17 @@
 
 ## ⚙️ BƯỚC 0: KHỞI ĐỘNG (BẮT BUỘC TRƯỚC KHI TEST)
 
-Mở **2 terminal riêng biệt** và chạy:
+Mở **2 terminal riêng biệt** tại thư mục gốc của dự án (`D:\Projects\cinema`) và chạy:
 
 **Terminal 1 — Backend:**
 ```powershell
-cd D:\Projects\cinema\apps\api
-npx nest start --watch
+pnpm --filter api dev
 ```
 ✅ Chờ thấy dòng: `🚀 Application is running on: http://[::1]:3006`
 
 **Terminal 2 — Frontend:**
 ```powershell
-cd D:\Projects\cinema\apps\web
-npx next dev
+pnpm --filter web dev
 ```
 ✅ Chờ thấy: `✓ Ready in ...ms` — mở trình duyệt tại `http://localhost:3000`
 
@@ -304,15 +302,15 @@ Sau khi test xong, điền vào bảng này:
 
 ## 🆘 NẾU DB RỖNG (Không có phim / showtime)
 
+Chạy lệnh seed từ thư mục gốc của dự án để tạo dữ liệu mẫu:
 ```powershell
-# Chạy lệnh seed để tạo dữ liệu mẫu
-cd D:\Projects\cinema\apps\api
-npx ts-node --project tsconfig.json prisma/seed.ts
+pnpm --filter api exec prisma db seed
 ```
 
-Nếu lệnh trên lỗi, thử:
+Nếu lệnh trên lỗi, anh có thể di chuyển vào thư mục api và chạy:
 ```powershell
-npx prisma db seed
+cd D:\Projects\cinema\apps\api
+pnpm prisma db seed
 ```
 
 ---
