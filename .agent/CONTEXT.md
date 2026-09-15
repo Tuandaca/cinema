@@ -11,8 +11,8 @@
 |-------|-------|
 | **Phase** | Cuối Phase 6 → Bắt đầu **Phase 7: Admin Dashboard** |
 | **Started** | 2026-04-01 |
-| **Last Updated** | **2026-09-15** |
-| **Current Task** | 🏆 Hoàn tất 100% Phase 1-6 sau Master Fixes & Deep QA Audit. Sẵn sàng khởi động Phase 7 (Admin Dashboard). |
+| **Last Updated** | **2026-09-16** |
+| **Current Task** | 🏆 Hoàn tất 100% Phase 1-6 sau Master Fixes & Zero-Defect Deep QA Audit (9/9 Tests Pass). Sẵn sàng bắt tay vào Phase 7 (Admin Dashboard). |
 
 ### Phases Progress:
 - [x] **Phase 1: System Design & Architecture** (100% - COMPLETED)
@@ -55,7 +55,7 @@
 
 1. [x] **WebSocket Gateway JWT Auth**: Đã tạo `WsJwtGuard`, trích xuất `userId` từ token handshake, cấm tuyệt đối giả mạo payload.
 2. [x] **Xóa User Fallback**: Xóa bỏ `findFirst()` fallback trong `createBooking` (ném 401). Tách riêng `guest@coicine.com` trong AI Chatbot để không làm bẩn lịch sử của Admin.
-3. [x] **Payment DB Update (`PAID`)**: Thêm `confirmMockPayment` và endpoint `POST /payment/:id/confirm` cập nhật `BookingStatus = PAID` và ghế sang `BOOKED`.
+3. [x] **Payment DB Update (`PAID`)**: Thêm `confirmMockPayment` và endpoint `POST /payment/:id/confirm` cập nhật `BookingStatus = PAID`, giữ nguyên vẹn `Seat.type` (NORMAL/VIP) của phòng chiếu.
 4. [x] **Trang Đăng Ký `/auth/register`**: Tạo trang đăng ký giao diện Premium Dark Mode, tự động đăng nhập và cấp token ngay sau khi tạo tài khoản.
 5. [x] **Xóa `dummy-token`**: Checkout đã lấy token JWT thật từ `useAuth()`.
 6. [x] **SeatGrid `currentUserId`**: Lấy `userId` trực tiếp từ Auth Context và truyền vào `SeatGrid`, ghế đã chọn đổi màu xanh mượt mà.
@@ -70,6 +70,20 @@
 15. [x] **Redis Safe Degradation**: Bọc `redisAvailable` và `try...catch` quanh tất cả hàm thao tác Redis, không bao giờ sập ứng dụng nếu Redis gián đoạn.
 16. [x] **SocketProvider Auth**: Kết nối socket kèm handshake token, tự động reconnect khi đăng nhập/đăng xuất.
 17. [x] **Build Check & Verification**: Backend và Frontend đều đạt **0 TypeScript errors**.
+
+---
+
+## 🔬 Kết Quả Zero-Defect Deep QA Audit (2026-09-15 ~ 2026-09-16)
+
+> Đã bổ sung bộ kiểm thử Integration Test Suite trực tiếp trên Supabase DB, đạt **9/9 TESTS PASSED (100%)**:
+
+1. [x] **Chống Double-Booking cấp Database**: Kiểm tra `bookingSeat.findFirst` trong DB trước khi tạo đơn vé, chặn đứng race conditions.
+2. [x] **Bảo Toàn Thuộc Tính Vật Lý Của Ghế**: Loại bỏ lệnh ghi đè `seat.type = 'BOOKED'`. Ghế giữ nguyên thuộc tính vật lý `NORMAL` / `VIP`.
+3. [x] **Tự Động Huỷ Chặn Ghế Quá Hạn (10 phút)**: Các đơn `PENDING` bị bỏ dở quá 10 phút sẽ tự động hết hiệu lực, nhả ghế cho người khác.
+4. [x] **Lưu Đúng Giá Từng Ghế**: Cột `BookingSeat.price` lưu chính xác giá đã nhân hệ số theo loại ghế (VIP: 1.5x, Sweetbox: 2.0x).
+5. [x] **Tự Động Confirm Cho Tất Cả Hình Thức Thanh Toán**: Card, QR Code và Saved Card đều gọi `confirmPayment` để chuyển DB sang `PAID`.
+6. [x] **API & Trang Vé Điện Tử `/checkout/success`**: Thêm `GET /showtimes/bookings/:id`, trang thành công hiển thị đúng thông tin vé thật và hỗ trợ in/tải vé (`window.print`).
+7. [x] **Đồng Nhất Giao Diện Thương Hiệu**: Logo `COICINE` (COI vàng, CINE trắng) đồng nhất trên toàn bộ Header và Footer.
 
 ---
 
@@ -95,7 +109,8 @@
 - [x] Gemini 2.5 Flash AI integration với đầy đủ tools.
 - [x] **Comprehensive Audit Phase 1-5 (2026-09-14)** — Bóc tách 15 lỗi hệ thống, xuất báo cáo `audit_phase1_5.md`.
 - [x] **Master Fixes Plan (2026-09-15)** — Lập kế hoạch chi tiết từng bước cho toàn bộ 17 lỗi.
-- [x] **Deep QA Audit & Zero-Defect Remediation (2026-09-15)** — Triển khai thành công toàn bộ 17 lỗi và vá bổ sung 7 lỗi ngầm, verified 0 errors. Đóng Phase 1-6.
+- [x] **Deep QA Audit & Zero-Defect Remediation (2026-09-15)** — Triển khai thành công toàn bộ 17 lỗi và vá bổ sung 7 lỗi ngầm, verified 0 errors.
+- [x] **Zero-Defect Stress & Integration Verification (2026-09-16)** — Kiểm thử thực nghiệm DB 9/9 Pass, đồng bộ vé thật, push toàn bộ GitHub. Đóng Phase 1-6.
 
 ---
 
@@ -121,4 +136,4 @@
 
 ---
 
-*Project Managed by Tuandaca | Master Fixes & Deep QA Completed: 2026-09-15*
+*Project Managed by Tuandaca | All Phase 1-6 Tests Passed: 2026-09-16*
