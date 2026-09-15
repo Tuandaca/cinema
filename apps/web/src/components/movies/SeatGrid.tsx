@@ -4,18 +4,20 @@ import React, { useState, useEffect } from 'react';
 import { Seat } from '@/services/booking.service';
 import { useSocket } from '@/providers/SocketProvider';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/providers/AuthProvider';
 
 interface SeatGridProps {
   showtimeId: string;
   initialSeats: Seat[];
   onSelectionChange: (selectedSeatIds: string[]) => void;
-  currentUserId?: string; // Replace with actual auth user
+  currentUserId?: string;
 }
 
-export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, currentUserId }: SeatGridProps) {
+export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, currentUserId: propUserId }: SeatGridProps) {
+  const { user } = useAuth();
+  const currentUserId = propUserId || user?.id || '';
   const { socket, isConnected } = useSocket();
   const queryClient = useQueryClient();
-  // Use the real authenticated user ID — never generate a random one
   const [seats, setSeats] = useState<Seat[]>(initialSeats);
   const [selectedSeatIds, setSelectedSeatIds] = useState<Set<string>>(new Set());
   const [othersSelecting, setOthersSelecting] = useState<Set<string>>(new Set());

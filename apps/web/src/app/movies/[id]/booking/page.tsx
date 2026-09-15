@@ -18,7 +18,7 @@ export default function BookingPage() {
   const router = useRouter();
   const showtimeId = searchParams.get('showtimeId') as string;
   
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [selectedSeatIds, setSelectedSeatIds] = useState<string[]>([]);
   const [isLocking, setIsLocking] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -115,7 +115,7 @@ export default function BookingPage() {
             showtimeId={showtimeId} 
             initialSeats={seats} 
             onSelectionChange={setSelectedSeatIds} 
-            // currentUserId="user-123" // Replace with actual user ID from auth context
+            currentUserId={user?.id}
           />
         </div>
 
@@ -138,9 +138,13 @@ export default function BookingPage() {
             <div>
               <p className="text-white/60 text-sm mb-1">Total Price</p>
               <p className="text-2xl font-bold text-cyan-400 font-outfit">
-                ${selectedSeatIds.length > 0 
-                  ? selectedSeatIds.length * showtime.priceBase 
-                  : 0}
+                {selectedSeatIds.length > 0 
+                  ? selectedSeatIds.reduce((sum, id) => {
+                      const s = seats.find(seat => seat.id === id);
+                      const mult = s?.type === 'VIP' ? 1.5 : s?.type === 'SWEETBOX' ? 2.0 : 1.0;
+                      return sum + (showtime.priceBase * mult);
+                    }, 0).toLocaleString('vi-VN') + ' đ'
+                  : '0 đ'}
               </p>
             </div>
             <button

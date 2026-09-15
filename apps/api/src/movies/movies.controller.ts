@@ -14,8 +14,14 @@ export class MoviesController {
   ) {}
 
   @Get()
-  async findAll(@Query('genre') genre?: string) {
-    return this.moviesService.findAll(genre);
+  async findAll(
+    @Query('genre') genre?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 20;
+    return this.moviesService.findAll(genre, pageNum, limitNum);
   }
 
   @Get(':id')

@@ -5,7 +5,8 @@ import { PrismaService } from '../prisma/prisma.service';
 export class MoviesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(genre?: string) {
+  async findAll(genre?: string, page: number = 1, limit: number = 20) {
+    const skip = Math.max(0, (page - 1) * limit);
     return this.prisma.movie.findMany({
       where: genre ? {
         genres: {
@@ -18,6 +19,8 @@ export class MoviesService {
       orderBy: {
         released: 'desc',
       },
+      skip,
+      take: limit,
     });
   }
 

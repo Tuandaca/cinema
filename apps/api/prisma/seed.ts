@@ -2,8 +2,9 @@ import { PrismaClient, Role, MovieStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import axios from 'axios';
 import * as dotenv from 'dotenv';
+import * as path from 'path';
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const prisma = new PrismaClient();
 

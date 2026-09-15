@@ -99,38 +99,44 @@ export class BookingService {
       b.seats.forEach((s) => bookedSeatIds.add(s.seatId));
     });
 
-    // Get hard-locked seats from Redis
-    const lockKeysPattern = `lock:${showtimeId}:*`;
-    const lockKeys = await this.redis.keys(lockKeysPattern);
+    // Get hard-locked and soft-locked seats from Redis (resilient fallback)
     const lockedSeats = new Map<string, string>(); // seatId -> userId
-
-    if (lockKeys.length > 0) {
-      const values = await this.redis.mget(lockKeys);
-      lockKeys.forEach((key, index) => {
-        const parts = key.split(':');
-        const seatId = parts[2];
-        const userId = values[index];
-        if (userId) {
-          lockedSeats.set(seatId, userId);
-        }
-      });
-    }
-
-    // Get soft-locked seats from Redis
-    const softLockKeysPattern = `softlock:${showtimeId}:*`;
-    const softLockKeys = await this.redis.keys(softLockKeysPattern);
     const softLockedSeats = new Map<string, string>(); // seatId -> userId
 
-    if (softLockKeys.length > 0) {
-      const values = await this.redis.mget(softLockKeys);
-      softLockKeys.forEach((key, index) => {
-        const parts = key.split(':');
-        const seatId = parts[2];
-        const userId = values[index];
-        if (userId) {
-          softLockedSeats.set(seatId, userId);
+    if (this.redisAvailable) {
+      try {
+        const lockKeysPattern = `lock:${showtimeId}:*`;
+        const lockKeys = await this.redis.keys(lockKeysPattern);
+
+        if (lockKeys.length > 0) {
+          const values = await this.redis.mget(lockKeys);
+          lockKeys.forEach((key, index) => {
+            const parts = key.split(':');
+            const seatId = parts[2];
+            const userId = values[index];
+            if (userId) {
+              lockedSeats.set(seatId, userId);
+            }
+          });
         }
-      });
+
+        const softLockKeysPattern = `softlock:${showtimeId}:*`;
+        const softLockKeys = await this.redis.keys(softLockKeysPattern);
+
+        if (softLockKeys.length > 0) {
+          const values = await this.redis.mget(softLockKeys);
+          softLockKeys.forEach((key, index) => {
+            const parts = key.split(':');
+            const seatId = parts[2];
+            const userId = values[index];
+            if (userId) {
+              softLockedSeats.set(seatId, userId);
+            }
+          });
+        }
+      } catch (err: any) {
+        this.logger.warn(`Redis unavailable while fetching seats status: ${err.message}`);
+      }
     }
 
     return showtime.room.seats.map((seat) => {
@@ -175,8 +181,12 @@ export class BookingService {
     }
 
     // 2. Try to lock in Redis using Lua script
+    if (!this.redisAvailable) {
+      this.logger.warn('Redis unavailable: skipping Redis lock, relying on DB check only.');
+      return true;
+    }
+
     const lockKeys = seatIds.map(id => `lock:${showtimeId}:${id}`);
-    const softLockKeys = seatIds.map(id => `softlock:${showtimeId}:${id}`);
     
     // Check if seats are already hard-locked by SOMEONE ELSE.
     // Also upgrade soft-locks to hard-locks
@@ -204,25 +214,30 @@ export class BookingService {
       return 1 -- Success
     `;
 
-    const result = await this.redis.eval(
-      script,
-      lockKeys.length,
-      ...lockKeys,
-      userId,
-      this.LOCK_TTL
-    );
+    try {
+      const result = await this.redis.eval(
+        script,
+        lockKeys.length,
+        ...lockKeys,
+        userId,
+        this.LOCK_TTL
+      );
 
-    if (result === 0) {
-      throw new BadRequestException('Ghế đang được người khác giữ.');
+      if (result === 0) {
+        throw new BadRequestException('Ghế đang được người khác giữ.');
+      }
+    } catch (err: any) {
+      if (err instanceof BadRequestException) throw err;
+      this.logger.warn(`Redis lockSeats error: ${err.message}. Proceeding without Redis.`);
     }
 
     return true;
   }
 
   async releaseLocks(showtimeId: string, seatIds: string[], userId: string): Promise<void> {
+    if (!this.redisAvailable) return;
     const lockKeys = seatIds.map(id => `lock:${showtimeId}:${id}`);
     
-    // Only release if the current owner is the user
     const script = `
       local keys = KEYS
       local userId = ARGV[1]
@@ -236,32 +251,43 @@ export class BookingService {
       return 1
     `;
 
-    await this.redis.eval(script, lockKeys.length, ...lockKeys, userId);
+    try {
+      await this.redis.eval(script, lockKeys.length, ...lockKeys, userId);
+    } catch (err: any) {
+      this.logger.warn(`Redis releaseLocks error: ${err.message}`);
+    }
   }
 
   async releaseAllUserLocks(userId: string): Promise<void> {
-    const lockKeys = await this.redis.keys('lock:*:*');
-    const softLockKeys = await this.redis.keys('softlock:*:*');
-    const allKeys = [...lockKeys, ...softLockKeys];
-    
-    if (allKeys.length === 0) return;
+    if (!this.redisAvailable) return;
+    try {
+      const lockKeys = await this.redis.keys('lock:*:*');
+      const softLockKeys = await this.redis.keys('softlock:*:*');
+      const allKeys = [...lockKeys, ...softLockKeys];
+      
+      if (allKeys.length === 0) return;
 
-    const pipeline = this.redis.pipeline();
-    const values = await this.redis.mget(allKeys);
+      const pipeline = this.redis.pipeline();
+      const values = await this.redis.mget(allKeys);
 
-    allKeys.forEach((key, index) => {
-      if (values[index] === userId) {
-        pipeline.del(key);
-      }
-    });
+      allKeys.forEach((key, index) => {
+        if (values[index] === userId) {
+          pipeline.del(key);
+        }
+      });
 
-    await pipeline.exec();
-    this.logger.log(`Released all locks for user: ${userId}`);
+      await pipeline.exec();
+      this.logger.log(`Released all locks for user: ${userId}`);
+    } catch (err: any) {
+      this.logger.warn(`Redis releaseAllUserLocks error: ${err.message}`);
+    }
   }
 
   // --- TWO-PHASE LOCKING: SOFT-LOCKS ---
 
   async softLockSeat(showtimeId: string, seatId: string, userId: string): Promise<boolean> {
+    if (!this.redisAvailable) return true;
+
     // Check if hard-locked or soft-locked by someone else
     const softKey = `softlock:${showtimeId}:${seatId}`;
     const hardKey = `lock:${showtimeId}:${seatId}`;
@@ -288,11 +314,18 @@ export class BookingService {
       return 1
     `;
 
-    const result = await this.redis.eval(script, 2, softKey, hardKey, userId, this.LOCK_TTL);
-    return result === 1;
+    try {
+      const result = await this.redis.eval(script, 2, softKey, hardKey, userId, this.LOCK_TTL);
+      return result === 1;
+    } catch (err: any) {
+      this.logger.warn(`Redis softLockSeat error: ${err.message}`);
+      return true;
+    }
   }
 
   async releaseSoftLockSeat(showtimeId: string, seatId: string, userId: string): Promise<void> {
+    if (!this.redisAvailable) return;
+
     const softKey = `softlock:${showtimeId}:${seatId}`;
     const script = `
       local key = KEYS[1]
@@ -303,7 +336,11 @@ export class BookingService {
       end
       return 1
     `;
-    await this.redis.eval(script, 1, softKey, userId);
+    try {
+      await this.redis.eval(script, 1, softKey, userId);
+    } catch (err: any) {
+      this.logger.warn(`Redis releaseSoftLockSeat error: ${err.message}`);
+    }
   }
 
   // --- ORDER CREATION ---

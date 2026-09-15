@@ -19,23 +19,20 @@ export class AiService {
   async chat(userId: string, sessionId: string | null, message: string) {
     this.logger.log(`Chat request: user=${userId}, session=${sessionId}, message=${message}`);
 
-    // Ensure valid user
+    // Ensure valid user - never fall back to admin/firstUser to protect admin history
     let validUserId = userId;
     const userExists = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!userExists) {
-      const firstUser = await this.prisma.user.findFirst();
-      if (firstUser) {
-        validUserId = firstUser.id;
-      } else {
-        const systemUser = await this.prisma.user.create({
-          data: {
-            email: 'system@coicine.com',
-            name: 'System User',
-            password: 'system-password-placeholder',
-          },
-        });
-        validUserId = systemUser.id;
-      }
+      const guestUser = await this.prisma.user.upsert({
+        where: { email: 'guest@coicine.com' },
+        update: {},
+        create: {
+          email: 'guest@coicine.com',
+          name: 'Khách vãng lai',
+          password: 'system-guest-password-placeholder',
+        },
+      });
+      validUserId = guestUser.id;
     }
 
     // 1. Get or Create Session

@@ -134,7 +134,10 @@ function CheckoutContent() {
   }
 
   const selectedSeats = allSeats?.filter(s => seatIds.includes(s.id)) || [];
-  const ticketsPrice = selectedSeats.length * (showtime?.priceBase || 0);
+  const ticketsPrice = selectedSeats.reduce((sum, s) => {
+    const mult = s.type === 'VIP' ? 1.5 : s.type === 'SWEETBOX' ? 2.0 : 1.0;
+    return sum + (showtime?.priceBase || 0) * mult;
+  }, 0);
   
   const combosPrice = selectedCombos.reduce((acc, curr) => {
     const combo = combos?.find(c => c.id === curr.comboId);
