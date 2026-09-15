@@ -43,7 +43,7 @@ export class AiService {
     if (sessionId) {
       session = await this.prisma.aIChatSession.findUnique({
         where: { id: sessionId },
-        include: { messages: { orderBy: { createdAt: 'asc' }, take: 20 } },
+        include: { messages: { orderBy: { createdAt: 'asc' }, take: 10 } },
       });
     }
     if (!session) {

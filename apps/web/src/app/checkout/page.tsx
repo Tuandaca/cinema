@@ -159,20 +159,25 @@ function CheckoutContent() {
   const handleCreateOrder = async () => {
     setIsOrdering(true);
     try {
-      const token = 'dummy-token';
+      const authToken = token; // Real JWT from useAuth()
+      if (!authToken) {
+        alert('Bạn chưa đăng nhập. Vui lòng đăng nhập lại.');
+        return;
+      }
       // 1. Create DB Booking
-      const booking = await bookingService.createBooking(showtimeId, seatIds, selectedCombos, token);
+      const booking = await bookingService.createBooking(showtimeId, seatIds, selectedCombos, authToken);
       setBookingId(booking.id);
 
       // 2. Depending on Tab, get Payment Intent or QR
       if (activeTab === 'CARD') {
-        const intent = await bookingService.createPaymentIntent(booking.id, token);
+        const intent = await bookingService.createPaymentIntent(booking.id, authToken);
         setClientSecret(intent.clientSecret);
       } else if (activeTab === 'QR') {
-        const qr = await bookingService.createQRCode(booking.id, totalAmount, token);
+        const qr = await bookingService.createQRCode(booking.id, totalAmount, authToken);
         setQrUrl(qr.qrUrl);
       } else {
-        // Saved Card - Mock direct success
+        // Saved Card - Mock direct success: confirm payment in DB
+        await bookingService.confirmPayment(booking.id, authToken);
         setTimeout(() => handleSuccess(booking.id), 1500);
       }
     } catch (err: any) {

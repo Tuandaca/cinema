@@ -232,3 +232,56 @@
 - **Prevention**: Sử dụng linter rule `no-console` hoặc chỉ dùng `process.env.NODE_ENV !== 'production'` guard khi cần debug log.
 - **Status**: Fixed
 
+---
+
+## [2026-09-15 01:20] - WebSocket Gateway Missing Authentication (Spoofing & Unauthorized Seat Lock)
+- **Type**: Logic/Security
+- **Severity**: Critical
+- **File**: `apps/api/src/booking/booking.gateway.ts:55-115`
+- **Agent**: cinemaAgent
+- **Root Cause**: Các event `select_seat`, `deselect_seat`, `join_showtime` nhận `userId` trực tiếp từ client payload mà không có JWT Guard kiểm tra handshake. Bất kỳ client nào cũng có thể giả mạo userId để chiếm giữ ghế hoặc mở khóa ghế của người khác.
+- **Error Message**: None (Vulnerability)
+- **Fix Applied**: Đã lập kế hoạch tạo `WsJwtGuard`, trích xuất token từ handshake auth và đọc trực tiếp `client.data.user.sub`.
+- **Prevention**: Toàn bộ WebSocket Gateway có thao tác thay đổi trạng thái phải đi qua WsGuard xác thực token.
+- **Status**: Investigating
+
+---
+
+## [2026-09-15 01:20] - Booking Service Dangerous User Fallback
+- **Type**: Logic/Security
+- **Severity**: Critical
+- **File**: `apps/api/src/booking/booking.service.ts:318-324`
+- **Agent**: cinemaAgent
+- **Root Cause**: Khi `userId` gửi lên không tồn tại trong DB, hàm `createBooking` tự động query user đầu tiên (`prisma.user.findFirst()`) và gán booking vào user đó. Điều này cho phép tạo booking rác vào tài khoản người khác.
+- **Error Message**: None (Logic vulnerability)
+- **Fix Applied**: Đã lập kế hoạch xóa bỏ fallback, throw `UnauthorizedException` nếu không tìm thấy user.
+- **Prevention**: Tuyệt đối không fallback user cho các giao dịch tài chính/đơn hàng.
+- **Status**: Investigating
+
+---
+
+## [2026-09-15 01:20] - Payment Webhook Missing Booking DB Update (Stuck in PENDING)
+- **Type**: Integration/Logic
+- **Severity**: Critical
+- **File**: `apps/api/src/payment/payment.service.ts:48-52`
+- **Agent**: cinemaAgent
+- **Root Cause**: Phương thức `handleStripeWebhook` chỉ return `{ received: true }` mà không cập nhật trường `status` của Booking trong DB thành `PAID`. Dẫn đến ghế không bao giờ được xác nhận là `BOOKED` trên sơ đồ ghế.
+- **Error Message**: None (Missing business logic)
+- **Fix Applied**: Cần bổ sung `await this.prisma.booking.update({ where: { id: bookingId }, data: { status: 'PAID' } })`.
+- **Prevention**: Luôn hoàn thiện đầy đủ end-to-end webhook handler trước khi đánh dấu module hoàn thành.
+- **Status**: Investigating
+
+---
+
+## [2026-09-15 01:20] - Checkout Page Hardcoded Dummy Token
+- **Type**: Logic
+- **Severity**: High
+- **File**: `apps/web/src/app/checkout/page.tsx:162`
+- **Agent**: cinemaAgent
+- **Root Cause**: Trong hàm `handleCreateOrder`, token bị gán cứng thành `const token = 'dummy-token';` thay vì dùng token từ `useAuth()`. Dẫn đến request tạo đơn hàng bị lỗi 401 Unauthorized.
+- **Error Message**: `401 Unauthorized` on `POST /api/showtimes/bookings`
+- **Fix Applied**: Xóa biến hardcode, lấy token thật từ `useAuth()`.
+- **Prevention**: Code review checklist kiểm tra token/credential trước khi merge.
+- **Status**: Investigating
+
+

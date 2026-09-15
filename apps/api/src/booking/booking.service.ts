@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import Redis from 'ioredis';
 
@@ -314,13 +314,10 @@ export class BookingService {
     seatIds: string[],
     combos: { comboId: string; quantity: number }[]
   ) {
-    // Foreign key fix for mock users:
-    let validUserId = userId;
+    // Validate user existence — NO fallback to prevent unauthorized bookings
     const userExists = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!userExists) {
-      const fallbackUser = await this.prisma.user.findFirst();
-      if (!fallbackUser) throw new BadRequestException('No users in database to associate booking with');
-      validUserId = fallbackUser.id;
+      throw new UnauthorizedException('Invalid user. Please log in again.');
     }
 
     const showtime = await this.prisma.showtime.findUnique({
@@ -329,12 +326,21 @@ export class BookingService {
 
     if (!showtime) throw new BadRequestException('Showtime not found');
 
+    // Fetch seat details to calculate correct price per seat type
+    const seats = await this.prisma.seat.findMany({
+      where: { id: { in: seatIds } },
+    });
+
     let totalAmount = 0;
-    
-    // Calculate seats price
-    totalAmount += seatIds.length * showtime.priceBase;
-    
-    // VIP seats might have extra charge later, but let's keep simple
+
+    // Calculate seats price with type multiplier
+    for (const seat of seats) {
+      const basePrice = showtime.priceBase;
+      let multiplier = 1.0;
+      if (seat.type === 'VIP') multiplier = 1.5;
+      else if (seat.type === 'SWEETBOX') multiplier = 2.0;
+      totalAmount += basePrice * multiplier;
+    }
 
     // Calculate combos price
     const orderItemsData = [];
@@ -354,7 +360,7 @@ export class BookingService {
     // Create DB Booking
     const booking = await this.prisma.booking.create({
       data: {
-        userId: validUserId,
+        userId: userId,
         showtimeId,
         status: 'PENDING',
         totalAmount,

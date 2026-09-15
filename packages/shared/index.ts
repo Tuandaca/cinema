@@ -1,4 +1,4 @@
-export const CINEMA_APP_NAME = "Cinema AI Booking";
+export const CINEMA_APP_NAME = "CoiCine";
 
 export interface Movie {
   id: string;

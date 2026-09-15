@@ -12,10 +12,10 @@ interface SeatGridProps {
   currentUserId?: string; // Replace with actual auth user
 }
 
-export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, currentUserId: initialUserId }: SeatGridProps) {
+export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, currentUserId }: SeatGridProps) {
   const { socket, isConnected } = useSocket();
   const queryClient = useQueryClient();
-  const [currentUserId] = useState(initialUserId || `user-${Math.floor(Math.random() * 1000)}`);
+  // Use the real authenticated user ID — never generate a random one
   const [seats, setSeats] = useState<Seat[]>(initialSeats);
   const [selectedSeatIds, setSelectedSeatIds] = useState<Set<string>>(new Set());
   const [othersSelecting, setOthersSelecting] = useState<Set<string>>(new Set());

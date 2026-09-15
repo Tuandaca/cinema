@@ -113,5 +113,21 @@ export const bookingService = {
       throw new Error('Failed to create QR code');
     }
     return response.json();
-  }
+  },
+
+  confirmPayment: async (bookingId: string, token: string): Promise<{ success: boolean; status: string }> => {
+    const response = await fetch(`${API_URL}/payment/${bookingId}/confirm`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to confirm payment');
+    }
+    return response.json();
+  },
 };

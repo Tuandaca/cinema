@@ -1,4 +1,12 @@
-import { Controller, Post, Body, Param, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Param,
+  UseGuards,
+  Req,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PaymentService } from './payment.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -8,7 +16,9 @@ export class PaymentController {
 
   @UseGuards(JwtAuthGuard)
   @Post(':bookingId/intent')
-  async createIntent(@Param('bookingId') bookingId: string) {
+  async createIntent(@Param('bookingId') bookingId: string, @Req() req: any) {
+    // IDOR protection: verify booking belongs to the authenticated user
+    await this.paymentService.verifyBookingOwnership(bookingId, req.user.id);
     return this.paymentService.createPaymentIntent(bookingId);
   }
 
@@ -17,10 +27,16 @@ export class PaymentController {
   async createQRCode(
     @Param('bookingId') bookingId: string,
     @Body('amount') amount: number,
+    @Req() req: any,
   ) {
+    // IDOR protection: verify booking belongs to the authenticated user
+    await this.paymentService.verifyBookingOwnership(bookingId, req.user.id);
     return this.paymentService.generateMockQRCode(bookingId, amount);
   }
 
-  // TODO: Add saved-cards API when Membership is fully built out
+  @UseGuards(JwtAuthGuard)
+  @Post(':bookingId/confirm')
+  async confirmPayment(@Param('bookingId') bookingId: string, @Req() req: any) {
+    return this.paymentService.confirmMockPayment(bookingId, req.user.id);
+  }
 }
-

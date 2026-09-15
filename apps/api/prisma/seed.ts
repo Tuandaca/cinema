@@ -212,37 +212,36 @@ async function main() {
   });
 
   let showtimeCount = 0;
-  for (let dayOffset = 0; dayOffset < 3; dayOffset++) {
+  for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
     const date = new Date();
     date.setDate(now.getDate() + dayOffset);
-    
-    // Suất chiếu lúc: 10:00, 14:00, 18:00, 22:00
-    const hours = [10, 14, 18, 22];
-    
-    for (let i = 0; i < seededMovies.length; i++) {
-      const movie = seededMovies[i];
-      const room = rooms[i % rooms.length];
-      const hour = hours[i % hours.length];
-      
-      const startTime = new Date(date);
-      startTime.setHours(hour, 0, 0, 0);
-      
-      const endTime = new Date(startTime);
-      endTime.setMinutes(startTime.getMinutes() + (movie.runtime || 120));
-      
-      await prisma.showtime.create({
-        data: {
-          movieId: movie.id,
-          roomId: room.id,
-          startTime,
-          endTime,
-          priceBase: 12.0,
-        }
-      });
-      showtimeCount++;
+
+    // Suất chiếu: 09:00, 12:00, 15:00, 18:00, 21:00
+    const hours = [9, 12, 15, 18, 21];
+
+    for (const movie of seededMovies) {
+      for (let h = 0; h < hours.length; h++) {
+        const room = rooms[h % rooms.length];
+        const startTime = new Date(date);
+        startTime.setHours(hours[h], 0, 0, 0);
+
+        const endTime = new Date(startTime);
+        endTime.setMinutes(startTime.getMinutes() + (movie.runtime || 120));
+
+        await prisma.showtime.create({
+          data: {
+            movieId: movie.id,
+            roomId: room.id,
+            startTime,
+            endTime,
+            priceBase: 80000, // 80k VNĐ base price
+          },
+        });
+        showtimeCount++;
+      }
     }
   }
-  console.log(`✅ Seeded ${showtimeCount} dynamic showtimes.`);
+  console.log(`✅ Seeded ${showtimeCount} dynamic showtimes (7 days, 5 slots/day).`);
 
   // 5. Seed F&B Combos
   const combos = [
