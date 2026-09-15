@@ -190,9 +190,17 @@ function CheckoutContent() {
     }
   };
 
-  const handleSuccess = (bid?: string) => {
+  const handleSuccess = async (bid?: string) => {
+    const targetBookingId = bid || bookingId;
+    if (targetBookingId && token) {
+      try {
+        await bookingService.confirmPayment(targetBookingId, token);
+      } catch (err) {
+        console.warn('Failed to confirm payment status:', err);
+      }
+    }
     localStorage.removeItem(`booking_start_${showtimeId}`);
-    router.push(`/checkout/success?bookingId=${bid || bookingId}`);
+    router.push(`/checkout/success?bookingId=${targetBookingId}`);
   };
 
   return (

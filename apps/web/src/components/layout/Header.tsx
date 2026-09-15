@@ -38,7 +38,7 @@ const Header = () => {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
           <span className="text-3xl font-headline font-bold text-coicine-gold tracking-tighter uppercase">
-            {CINEMA_APP_NAME.split(' ')[0]}<span className="text-white">{CINEMA_APP_NAME.split(' ').slice(1).join(' ')}</span>
+            COI<span className="text-white">CINE</span>
           </span>
         </Link>
 

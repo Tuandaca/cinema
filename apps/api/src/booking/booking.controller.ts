@@ -42,4 +42,10 @@ export class BookingController {
     const userId = req.user.id;
     return this.bookingService.createBooking(userId, body.showtimeId, body.seatIds, body.combos);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('bookings/:id')
+  async getBooking(@Param('id') id: string, @Req() req: any) {
+    return this.bookingService.getBookingById(id, req.user.id);
+  }
 }

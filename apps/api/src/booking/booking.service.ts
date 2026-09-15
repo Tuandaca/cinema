@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, UnauthorizedException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import Redis from 'ioredis';
 
@@ -81,13 +81,15 @@ export class BookingService {
       throw new BadRequestException('Showtime not found');
     }
 
-    // Get booked seats from DB (status PAID or PENDING maybe? Let's check PAID)
-    // Actually, PENDING might also be in DB if we want, but for now we rely on Redis for temporary locks.
-    // Let's assume BookingStatus PAID means booked permanently.
+    // Get booked seats from DB (status PAID or active PENDING within 10 minutes)
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
     const bookings = await this.prisma.booking.findMany({
       where: {
         showtimeId,
-        status: { in: ['PAID', 'PENDING'] }, // PENDING could be mid-payment
+        OR: [
+          { status: 'PAID' },
+          { status: 'PENDING', createdAt: { gte: tenMinutesAgo } },
+        ],
       },
       include: {
         seats: true,
@@ -165,19 +167,23 @@ export class BookingService {
   }
 
   async lockSeats(showtimeId: string, seatIds: string[], userId: string): Promise<boolean> {
-    // 1. Check if seats are already booked in DB
+    // 1. Check if seats are already booked in DB (PAID or active PENDING within 10m)
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
     const existingBookings = await this.prisma.bookingSeat.findFirst({
       where: {
         seatId: { in: seatIds },
         booking: {
           showtimeId,
-          status: { in: ['PAID', 'PENDING'] }
-        }
-      }
+          OR: [
+            { status: 'PAID' },
+            { status: 'PENDING', createdAt: { gte: tenMinutesAgo } },
+          ],
+        },
+      },
     });
 
     if (existingBookings) {
-      throw new BadRequestException('Một hoặc nhiều ghế đã được đặt.');
+      throw new BadRequestException('Một hoặc nhiều ghế đã được đặt hoặc đang thanh toán.');
     }
 
     // 2. Try to lock in Redis using Lua script
@@ -368,7 +374,32 @@ export class BookingService {
       where: { id: { in: seatIds } },
     });
 
+    // Double-booking prevention at DB level
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+    const conflictBooking = await this.prisma.bookingSeat.findFirst({
+      where: {
+        seatId: { in: seatIds },
+        booking: {
+          showtimeId,
+          OR: [
+            { status: 'PAID' },
+            { status: 'PENDING', createdAt: { gte: tenMinutesAgo } },
+          ],
+        },
+      },
+      include: {
+        seat: true,
+      },
+    });
+
+    if (conflictBooking) {
+      throw new BadRequestException(
+        `Ghế ${conflictBooking.seat.row}${conflictBooking.seat.number} đã được đặt hoặc đang trong quá trình thanh toán bởi người khác.`
+      );
+    }
+
     let totalAmount = 0;
+    const seatPriceMap = new Map<string, number>();
 
     // Calculate seats price with type multiplier
     for (const seat of seats) {
@@ -376,7 +407,9 @@ export class BookingService {
       let multiplier = 1.0;
       if (seat.type === 'VIP') multiplier = 1.5;
       else if (seat.type === 'SWEETBOX') multiplier = 2.0;
-      totalAmount += basePrice * multiplier;
+      const seatPrice = Math.round(basePrice * multiplier);
+      seatPriceMap.set(seat.id, seatPrice);
+      totalAmount += seatPrice;
     }
 
     // Calculate combos price
@@ -404,7 +437,7 @@ export class BookingService {
         seats: {
           create: seatIds.map(seatId => ({
             seatId,
-            price: showtime.priceBase,
+            price: seatPriceMap.get(seatId) || showtime.priceBase,
           })),
         },
         orderItems: {
@@ -419,6 +452,40 @@ export class BookingService {
       this.logger.log(`Released locks for seats ${seatIds.join(', ')} after booking ${booking.id}`);
     } catch (err) {
       this.logger.error(`Failed to release locks after booking: ${err.message}`);
+    }
+
+    return booking;
+  }
+
+  async getBookingById(bookingId: string, userId: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        showtime: {
+          include: {
+            movie: true,
+            room: true,
+          },
+        },
+        seats: {
+          include: {
+            seat: true,
+          },
+        },
+        orderItems: {
+          include: {
+            combo: true,
+          },
+        },
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
+
+    if (booking.userId !== userId) {
+      throw new ForbiddenException('Access denied: You do not own this booking');
     }
 
     return booking;

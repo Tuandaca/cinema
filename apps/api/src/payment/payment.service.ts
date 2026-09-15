@@ -95,15 +95,7 @@ export class PaymentService {
       data: { status: 'PAID' },
     });
 
-    // Update all associated seats to BOOKED
     const seatIds = booking.seats.map((bs) => bs.seatId);
-    if (seatIds.length > 0) {
-      await this.prisma.seat.updateMany({
-        where: { id: { in: seatIds } },
-        data: { type: 'BOOKED' }, // Only if Seat model has a status field
-      });
-    }
-
     this.logger.log(`Booking ${bookingId} confirmed as PAID. Seats: ${seatIds.join(', ')}`);
     return { success: true, bookingId, status: 'PAID' };
   }

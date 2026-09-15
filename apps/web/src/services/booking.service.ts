@@ -130,4 +130,18 @@ export const bookingService = {
     }
     return response.json();
   },
+
+  getBooking: async (bookingId: string, token: string): Promise<any> => {
+    const response = await fetch(`${API_URL}/showtimes/bookings/${bookingId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to fetch booking details');
+    }
+    return response.json();
+  },
 };
