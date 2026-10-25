@@ -17,7 +17,7 @@ export default function Home() {
       <Hero />
       
       {/* Trending Section */}
-      <section className="py-24 container mx-auto px-6">
+      <section id="trending-section" className="py-24 container mx-auto px-6">
         <div className="flex items-center justify-between mb-12">
           <div>
             <h2 className="text-4xl font-headline font-bold mb-2">Trending Now</h2>

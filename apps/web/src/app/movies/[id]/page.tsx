@@ -6,15 +6,29 @@ interface MoviePageProps {
   params: Promise<{ id: string }>;
 }
 
+function getApiUrl(): string {
+  // In Node.js / SSR environment, relative URLs like "/api" fail with "Failed to parse URL".
+  // Prioritize INTERNAL_API_URL or an absolute NEXT_PUBLIC_API_URL, falling back to localhost:3006.
+  const internal = process.env.INTERNAL_API_URL;
+  if (internal && internal.startsWith('http')) {
+    return internal.replace(/\/+$/, '');
+  }
+
+  const pub = process.env.NEXT_PUBLIC_API_URL;
+  if (pub && pub.startsWith('http')) {
+    return pub.replace(/\/+$/, '');
+  }
+
+  return 'http://127.0.0.1:3006/api';
+}
+
 async function fetchMovie(id: string): Promise<Movie | null> {
   try {
-    const apiUrl =
-      process.env.INTERNAL_API_URL ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      'http://127.0.0.1:3006/api';
+    const apiUrl = getApiUrl();
 
     const res = await fetch(`${apiUrl}/movies/${id}`, {
       next: { revalidate: 300 },
+      signal: AbortSignal.timeout(2000),
     });
 
     if (!res.ok) {
@@ -23,7 +37,7 @@ async function fetchMovie(id: string): Promise<Movie | null> {
 
     return await res.json();
   } catch {
-    // Graceful offline fallback during build/SSR if API is unreachable
+    // Graceful offline fallback during build/SSR if API is unreachable or times out
     return null;
   }
 }

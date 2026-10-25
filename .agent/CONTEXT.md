@@ -11,8 +11,8 @@
 |-------|-------|
 | **Phase** | **Phase 8: Optimization & Production Readiness (100% COMPLETED)** — Đạt **VICTORY CONFIRMED** |
 | **Started** | 2026-04-01 |
-| **Last Updated** | **2026-10-25** |
-| **Current Task** | 🏆 Hoàn tất 100% Phase 7 (Admin Dashboard) và Phase 8 (Two-tier Redis Cache & Invalidation, Dynamic SEO Metadata, Offline Font Fallback Resilience, Multi-stage Dockerization cho API & Web Standalone, và GitHub Actions CI/CD Pipeline). Toàn bộ 9/9 test suites với 79/79 unit tests pass 100% offline, 0 lỗi TypeScript, 0 lỗi Linter, Monorepo build thành công 100%. |
+| **Last Updated** | **2026-10-26** |
+| **Current Task** | 🏆 Hoàn tất 100% Phase 8 và các nhiệm vụ tồn đọng (Dynamic Future Showtimes Seed Engine phủ kín 7 ngày cho 13 phim, kết nối Hero Banner Book Tickets & YouTube Trailer Modal, tối ưu SSR Absolute URL Fetch < 50ms). Đạt phán quyết **VICTORY CONFIRMED** từ Sentinel Victory Auditor. Toàn bộ 12/12 test suites với 154/154 unit tests pass 100%, 0 lỗi TypeScript, 0 lỗi Linter. |
 
 ### Phases Progress:
 - [x] **Phase 1: System Design & Architecture** (100% - COMPLETED)
@@ -119,6 +119,7 @@
   3. *Dynamic SEO Metadata*: Chuyển đổi `/movies/[id]` sang Server Component với `generateMetadata` chuẩn Next.js 15 cho OpenGraph và Twitter Cards.
   4. *Multi-stage Containerization & CI/CD Pipeline*: Dockerfile đa tầng tối ưu dung lượng cho cả `apps/api` và `apps/web` (Alpine, non-root user `dumb-init`), `docker-compose.yml` tích hợp Postgres, Redis, API, Web, và pipeline `.github/workflows/ci.yml`.
   5. *Zero-Defect Quality Gate*: 9/9 test suites passed (79/79 unit & hermetic tests), 0 lỗi TypeScript, 0 lỗi Linter, 3/3 Monorepo packages build thành công 100%, phê chuẩn độc lập **VICTORY CONFIRMED** bởi Victory Auditor.
+  6. *Residual Fixes & Live Showtimes Engine (2026-10-26)*: Giải quyết triệt để vấn đề suất chiếu quá khứ bằng engine `seed-future-showtimes.ts` (70 suất chiếu 7 ngày tới, 0 collision), kết nối Hero banner CTA mượt mà kèm YouTube trailer modal, tối ưu SSR Node.js fetch với URL tuyệt đối kèm `AbortSignal.timeout(2000)` (< 50ms). Phê chuẩn **VICTORY CONFIRMED** bởi Sentinel Victory Auditor. Toàn bộ 12/12 test suites (154/154 tests) pass 100%.
 
 ---
 
