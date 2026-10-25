@@ -38,7 +38,7 @@ const Hero = () => {
           </h1>
 
           <p className="text-gray-300 text-lg md:text-xl mb-10 leading-relaxed max-w-xl">
-            Jake Sully and Neytiri must face a new threat as the Ash People emerge from the volcanic regions of Pandora, challenging everything they've fought for.
+            Jake Sully and Neytiri must face a new threat as the Ash People emerge from the volcanic regions of Pandora, challenging everything they&apos;ve fought for.
           </p>
 
           <div className="flex flex-wrap items-center gap-4">

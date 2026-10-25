@@ -1,7 +1,8 @@
 # 🧪 TEST GUIDE - CoiCine (Tuandaca tự test)
 
 > **Ngày tạo**: 2026-06-07 | **Tạo bởi**: cinemaAgent
-> **Mục tiêu**: Xác nhận toàn bộ hệ thống Phase 1–6 hoạt động đúng trước khi bắt đầu Phase 7.
+> **Mục tiêu**: Hướng dẫn kiểm thử toàn diện hệ thống CoiCine từ Phase 1 đến Phase 7.
+> 📖 **HƯỚNG DẪN TEST THỦ CÔNG CHI TIẾT MỚI NHẤT**: Xem file [RUN_AND_TEST_GUIDE.md](file:///d:/Projects/cinema/RUN_AND_TEST_GUIDE.md) để kiểm thử đầy đủ giao diện người dùng, phân hệ Quản trị Admin Dashboard, kiểm tra chống trùng lịch và đặt vé.
 > **Thời gian dự kiến**: ~30–45 phút
 
 ---

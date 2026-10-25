@@ -150,15 +150,27 @@ const Header = () => {
               ))}
             </nav>
 
-            <div className="mt-auto">
+            <div className="mt-auto space-y-3">
               {isAuthenticated ? (
-                <button 
-                  onClick={logout}
-                  className="flex items-center justify-center gap-2 w-full py-4 bg-red-500/20 text-red-500 rounded-xl text-lg font-bold"
-                >
-                  <LogOut size={20} />
-                  Logout
-                </button>
+                <>
+                  {user?.role === 'ADMIN' && (
+                    <Link
+                      href="/admin"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center justify-center gap-2 w-full py-3.5 bg-[#E5A93C] text-black rounded-xl text-base font-bold shadow-lg shadow-[#E5A93C]/20"
+                    >
+                      <LayoutDashboard size={20} />
+                      Admin Dashboard
+                    </Link>
+                  )}
+                  <button 
+                    onClick={logout}
+                    className="flex items-center justify-center gap-2 w-full py-3.5 bg-red-500/20 text-red-500 rounded-xl text-base font-bold"
+                  >
+                    <LogOut size={20} />
+                    Logout
+                  </button>
+                </>
               ) : (
                 <Link 
                   href="/auth/login" 

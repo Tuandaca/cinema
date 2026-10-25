@@ -1,16 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
-
-const outfit = Outfit({
-  subsets: ["latin"],
-  variable: "--font-outfit",
-});
 
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -31,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.variable} ${outfit.variable} antialiased bg-background text-foreground`}>
+      <body className="antialiased bg-background text-foreground font-body">
         <QueryProvider>
           <AuthProvider>
             <SocketProvider>

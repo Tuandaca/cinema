@@ -79,3 +79,6 @@ test-*.js
 # DO NOT add .agent to gitignore unless you
 # specifically don't want to share AI config.
 # ===================================
+
+.turbo/
+.agents/

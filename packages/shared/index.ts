@@ -9,6 +9,6 @@ export interface Movie {
 
 export enum BookingStatus {
   PENDING = "PENDING",
-  CONFIRMED = "CONFIRMED",
+  PAID = "PAID",
   CANCELLED = "CANCELLED"
 }

@@ -1,10 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ComboController } from './combo.controller';
-import { ComboService } from './combo.service';
+import { Test, TestingModule } from "@nestjs/testing";
+import { ComboController } from "./combo.controller";
+import { ComboService } from "./combo.service";
 
-describe('ComboController', () => {
+describe("ComboController", () => {
   let controller: ComboController;
-  
+
   const mockComboService = {
     findAll: jest.fn(),
   };
@@ -12,15 +12,13 @@ describe('ComboController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ComboController],
-      providers: [
-        { provide: ComboService, useValue: mockComboService },
-      ],
+      providers: [{ provide: ComboService, useValue: mockComboService }],
     }).compile();
 
     controller = module.get<ComboController>(ComboController);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(controller).toBeDefined();
   });
 });

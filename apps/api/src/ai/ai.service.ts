@@ -1,10 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { MoviesService } from '../movies/movies.service';
-import { BookingService } from '../booking/booking.service';
-import { generateText } from 'ai';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { z } from 'zod';
+import { Injectable, Logger } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import { MoviesService } from "../movies/movies.service";
+import { BookingService } from "../booking/booking.service";
+import { generateText } from "ai";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { z } from "zod";
 
 @Injectable()
 export class AiService {
@@ -17,19 +17,23 @@ export class AiService {
   ) {}
 
   async chat(userId: string, sessionId: string | null, message: string) {
-    this.logger.log(`Chat request: user=${userId}, session=${sessionId}, message=${message}`);
+    this.logger.log(
+      `Chat request: user=${userId}, session=${sessionId}, message=${message}`,
+    );
 
     // Ensure valid user - never fall back to admin/firstUser to protect admin history
     let validUserId = userId;
-    const userExists = await this.prisma.user.findUnique({ where: { id: userId } });
+    const userExists = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
     if (!userExists) {
       const guestUser = await this.prisma.user.upsert({
-        where: { email: 'guest@coicine.com' },
+        where: { email: "guest@coicine.com" },
         update: {},
         create: {
-          email: 'guest@coicine.com',
-          name: 'Khách vãng lai',
-          password: 'system-guest-password-placeholder',
+          email: "guest@coicine.com",
+          name: "Khách vãng lai",
+          password: "system-guest-password-placeholder",
         },
       });
       validUserId = guestUser.id;
@@ -40,19 +44,19 @@ export class AiService {
     if (sessionId) {
       session = await this.prisma.aIChatSession.findUnique({
         where: { id: sessionId },
-        include: { messages: { orderBy: { createdAt: 'asc' }, take: 10 } },
+        include: { messages: { orderBy: { createdAt: "asc" }, take: 10 } },
       });
     }
     if (!session) {
       session = await this.prisma.aIChatSession.create({
         data: { userId: validUserId },
-        include: { messages: { orderBy: { createdAt: 'asc' } } },
+        include: { messages: { orderBy: { createdAt: "asc" } } },
       });
     }
 
     // 2. Prepare conversation history
     const history = session.messages.map((m) => ({
-      role: m.role as 'user' | 'assistant',
+      role: m.role as "user" | "assistant",
       content: m.content,
     }));
 
@@ -62,18 +66,18 @@ export class AiService {
 
     // 3. Build current date context
     const now = new Date();
-    const dateStr = now.toLocaleDateString('vi-VN', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
+    const dateStr = now.toLocaleDateString("vi-VN", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
 
     // 4. Call AI with comprehensive tools
     let result: any;
     try {
       result = await generateText({
-        model: google('gemini-2.5-flash'),
+        model: google("gemini-2.5-flash"),
         maxSteps: 5,
         system: `Bạn là **CoiCine AI Buddy** – trợ lý rạp chiếu phim thông minh của nền tảng CoiCine.
 Hôm nay là ${dateStr}.
@@ -120,8 +124,8 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
 - Nếu user muốn "phim cho gia đình": tìm Animation, Family
 - Nếu user muốn "phim hay nhất": dùng getTopRatedMovies`,
         messages: [
-          ...history.filter((m) => m.content && m.content.trim() !== ''),
-          { role: 'user', content: message },
+          ...history.filter((m) => m.content && m.content.trim() !== ""),
+          { role: "user", content: message },
         ],
         tools: {
           // ═══════════════════════════════════════════
@@ -129,9 +133,11 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
           // ═══════════════════════════════════════════
           searchMovies: {
             description:
-              'Tìm kiếm phim theo từ khóa (tên phim, mô tả, nội dung). Dùng khi user muốn tìm phim cụ thể.',
+              "Tìm kiếm phim theo từ khóa (tên phim, mô tả, nội dung). Dùng khi user muốn tìm phim cụ thể.",
             parameters: z.object({
-              query: z.string().describe('Từ khóa tìm kiếm (tên phim, keyword, mô tả)'),
+              query: z
+                .string()
+                .describe("Từ khóa tìm kiếm (tên phim, keyword, mô tả)"),
             }),
             execute: async (args: any) => {
               const query = args?.query;
@@ -152,15 +158,15 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
 
           getMovieDetails: {
             description:
-              'Lấy thông tin chi tiết đầy đủ của một bộ phim (bao gồm rating, thời lượng, mô tả, thể loại, trailer). Dùng khi user muốn biết sâu về 1 phim.',
+              "Lấy thông tin chi tiết đầy đủ của một bộ phim (bao gồm rating, thời lượng, mô tả, thể loại, trailer). Dùng khi user muốn biết sâu về 1 phim.",
             parameters: z.object({
-              movieId: z.string().describe('ID của bộ phim cần xem chi tiết'),
+              movieId: z.string().describe("ID của bộ phim cần xem chi tiết"),
             }),
             execute: async (args: any) => {
               const movieId = args?.movieId;
-              if (!movieId) return { error: 'Không tìm thấy phim' };
+              if (!movieId) return { error: "Không tìm thấy phim" };
               const movie = await this.moviesService.findOne(movieId);
-              if (!movie) return { error: 'Không tìm thấy phim' };
+              if (!movie) return { error: "Không tìm thấy phim" };
               return {
                 id: movie.id,
                 title: movie.title,
@@ -185,9 +191,9 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
             parameters: z.object({}),
             execute: async () => {
               const movies = await this.prisma.movie.findMany({
-                where: { status: 'NOW_SHOWING' },
+                where: { status: "NOW_SHOWING" },
                 include: { genres: true },
-                orderBy: { rating: 'desc' },
+                orderBy: { rating: "desc" },
               });
               return movies.map((m) => ({
                 id: m.id,
@@ -207,9 +213,9 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
             parameters: z.object({}),
             execute: async () => {
               const movies = await this.prisma.movie.findMany({
-                where: { status: 'COMING_SOON' },
+                where: { status: "COMING_SOON" },
                 include: { genres: true },
-                orderBy: { released: 'asc' },
+                orderBy: { released: "asc" },
               });
               return movies.map((m) => ({
                 id: m.id,
@@ -227,12 +233,15 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
             description:
               'Lấy phim có đánh giá cao nhất. Dùng khi user hỏi "phim hay nhất?", "phim nên xem?", "gợi ý phim"',
             parameters: z.object({
-              limit: z.number().optional().describe('Số lượng phim muốn lấy (mặc định 5)'),
+              limit: z
+                .number()
+                .optional()
+                .describe("Số lượng phim muốn lấy (mặc định 5)"),
             }),
             execute: async ({ limit }: { limit?: number } = {}) => {
               const movies = await this.prisma.movie.findMany({
                 include: { genres: true },
-                orderBy: { rating: 'desc' },
+                orderBy: { rating: "desc" },
                 take: limit || 5,
                 where: { rating: { not: null } },
               });
@@ -249,9 +258,27 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
 
           getMoviesByGenre: {
             description:
-              'Lấy danh sách phim theo thể loại. BẠN PHẢI DỊCH THỂ LOẠI SANG TIẾNG ANH (Ví dụ: tình cảm -> Romance, hài hước -> Comedy, kinh dị -> Horror, hành động -> Action, khoa học viễn tưởng -> Sci-Fi, hoạt hình -> Animation). BẮT BUỘC PHẢI CHỌN TỪ DANH SÁCH ENUM. Nếu không có thể loại phù hợp, hãy gọi getTopRatedMovies thay thế.',
+              "Lấy danh sách phim theo thể loại. BẠN PHẢI DỊCH THỂ LOẠI SANG TIẾNG ANH (Ví dụ: tình cảm -> Romance, hài hước -> Comedy, kinh dị -> Horror, hành động -> Action, khoa học viễn tưởng -> Sci-Fi, hoạt hình -> Animation). BẮT BUỘC PHẢI CHỌN TỪ DANH SÁCH ENUM. Nếu không có thể loại phù hợp, hãy gọi getTopRatedMovies thay thế.",
             parameters: z.object({
-              genre: z.enum(['Romance', 'Action', 'Comedy', 'Drama', 'Horror', 'Sci-Fi', 'Animation', 'Thriller', 'Adventure', 'Family', 'Mystery', 'Crime', 'Fantasy']).describe('Thể loại phim bằng tiếng Anh. Bắt buộc chọn 1 giá trị này.'),
+              genre: z
+                .enum([
+                  "Romance",
+                  "Action",
+                  "Comedy",
+                  "Drama",
+                  "Horror",
+                  "Sci-Fi",
+                  "Animation",
+                  "Thriller",
+                  "Adventure",
+                  "Family",
+                  "Mystery",
+                  "Crime",
+                  "Fantasy",
+                ])
+                .describe(
+                  "Thể loại phim bằng tiếng Anh. Bắt buộc chọn 1 giá trị này.",
+                ),
             }),
             execute: async ({ genre }: { genre?: string } = {}) => {
               if (!genre) return []; // Fallback empty if LLM forgets genre
@@ -274,7 +301,7 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
             description:
               'Lấy danh sách suất chiếu (lịch chiếu) của một bộ phim. Dùng khi user hỏi "lịch chiếu phim X?", "suất chiếu phim X?"',
             parameters: z.object({
-              movieId: z.string().describe('ID của bộ phim cần xem suất chiếu'),
+              movieId: z.string().describe("ID của bộ phim cần xem suất chiếu"),
             }),
             execute: async (args: any) => {
               const movieId = args?.movieId;
@@ -295,24 +322,34 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
             description:
               'Kiểm tra ghế trống cho một suất chiếu. Trả về thống kê số ghế trống, đã đặt, đang giữ. Dùng khi user hỏi "còn ghế không?", "ghế trống suất chiếu X?"',
             parameters: z.object({
-              showtimeId: z.string().describe('ID của suất chiếu cần kiểm tra ghế'),
-              movieId: z.string().describe('ID của phim để tạo link đặt vé'),
+              showtimeId: z
+                .string()
+                .describe("ID của suất chiếu cần kiểm tra ghế"),
+              movieId: z.string().describe("ID của phim để tạo link đặt vé"),
             }),
             execute: async (args: any) => {
               const showtimeId = args?.showtimeId;
               const movieId = args?.movieId;
-              if (!showtimeId || !movieId) return { error: 'Thiếu thông tin suất chiếu' };
+              if (!showtimeId || !movieId)
+                return { error: "Thiếu thông tin suất chiếu" };
               try {
-                const seats = await this.bookingService.getSeatsStatus(showtimeId);
+                const seats =
+                  await this.bookingService.getSeatsStatus(showtimeId);
                 const total = seats.length;
-                const available = seats.filter((s) => s.status === 'AVAILABLE').length;
-                const booked = seats.filter((s) => s.status === 'BOOKED').length;
-                const locked = seats.filter((s) => s.status === 'LOCKED' || s.status === 'SELECTING').length;
+                const available = seats.filter(
+                  (s) => s.status === "AVAILABLE",
+                ).length;
+                const booked = seats.filter(
+                  (s) => s.status === "BOOKED",
+                ).length;
+                const locked = seats.filter(
+                  (s) => s.status === "LOCKED" || s.status === "SELECTING",
+                ).length;
                 const vipAvailable = seats.filter(
-                  (s) => s.type === 'VIP' && s.status === 'AVAILABLE',
+                  (s) => s.type === "VIP" && s.status === "AVAILABLE",
                 ).length;
                 const normalAvailable = seats.filter(
-                  (s) => s.type === 'NORMAL' && s.status === 'AVAILABLE',
+                  (s) => s.type === "NORMAL" && s.status === "AVAILABLE",
                 ).length;
 
                 return {
@@ -325,7 +362,9 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
                   bookingLink: `/movies/${movieId}/booking?showtimeId=${showtimeId}`,
                 };
               } catch {
-                return { error: 'Không tìm thấy suất chiếu hoặc lỗi khi kiểm tra ghế.' };
+                return {
+                  error: "Không tìm thấy suất chiếu hoặc lỗi khi kiểm tra ghế.",
+                };
               }
             },
           } as any,
@@ -360,7 +399,7 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
                 include: { _count: { select: { seats: true } } },
               });
               return {
-                theaterName: 'CoiCine Premium Cinema',
+                theaterName: "CoiCine Premium Cinema",
                 rooms: rooms.map((r) => ({
                   id: r.id,
                   name: r.name,
@@ -368,10 +407,10 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
                   totalSeats: r._count.seats,
                 })),
                 facilities: [
-                  'Dolby Atmos Sound System',
-                  'IMAX Laser Projection',
-                  'Luxury Recliner Seats',
-                  'Premium F&B Lounge',
+                  "Dolby Atmos Sound System",
+                  "IMAX Laser Projection",
+                  "Luxury Recliner Seats",
+                  "Premium F&B Lounge",
                 ],
               };
             },
@@ -380,27 +419,36 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
       } as any);
     } catch (error) {
       this.logger.error(`AI generateText error: ${error.message}`);
-      
+
       // Handle rate limit / quota errors gracefully
-      const errMsg = error.message || '';
-      const isRateLimit = 
+      const errMsg = error.message || "";
+      const isRateLimit =
         error.statusCode === 429 ||
-        errMsg.includes('429') ||
-        errMsg.includes('Quota exceeded') ||
-        (errMsg.includes('quota') && !errMsg.includes('generateContent') && !errMsg.includes('generate_content')) ||
-        (errMsg.includes('rate') && !errMsg.includes('generateContent') && !errMsg.includes('generate_content'));
+        errMsg.includes("429") ||
+        errMsg.includes("Quota exceeded") ||
+        (errMsg.includes("quota") &&
+          !errMsg.includes("generateContent") &&
+          !errMsg.includes("generate_content")) ||
+        (errMsg.includes("rate") &&
+          !errMsg.includes("generateContent") &&
+          !errMsg.includes("generate_content"));
 
       if (isRateLimit) {
         // Save to DB to keep session alive
         await this.prisma.aIChatMessage.createMany({
           data: [
-            { sessionId: session.id, role: 'user', content: message },
-            { sessionId: session.id, role: 'assistant', content: 'Xin lỗi bạn, hệ thống đang quá tải. Vui lòng thử lại sau ít giây nhé! 🙏' },
+            { sessionId: session.id, role: "user", content: message },
+            {
+              sessionId: session.id,
+              role: "assistant",
+              content:
+                "Xin lỗi bạn, hệ thống đang quá tải. Vui lòng thử lại sau ít giây nhé! 🙏",
+            },
           ],
         });
         return {
           sessionId: session.id,
-          text: 'Xin lỗi bạn, hệ thống đang quá tải. Vui lòng thử lại sau ít giây nhé! 🙏',
+          text: "Xin lỗi bạn, hệ thống đang quá tải. Vui lòng thử lại sau ít giây nhé! 🙏",
           uiCards: [],
         };
       }
@@ -408,29 +456,37 @@ Bạn là một chuyên gia điện ảnh, biết mọi thứ về rạp CoiCine
     }
 
     const { text, toolResults, steps } = result;
-    this.logger.debug(`generateText completed. steps: ${steps?.length}, text length: ${text?.length}, toolResults length: ${toolResults?.length}`);
+    this.logger.debug(
+      `generateText completed. steps: ${steps?.length}, text length: ${text?.length}, toolResults length: ${toolResults?.length}`,
+    );
     if (steps) {
       steps.forEach((s, i) => {
-        const tNames = s.toolCalls?.map(t => `${t.toolName}(${JSON.stringify(t.args)})`).join(', ');
+        const tNames = s.toolCalls
+          ?.map((t) => `${t.toolName}(${JSON.stringify(t.args)})`)
+          .join(", ");
         this.logger.debug(`Step ${i}: text='${s.text}', tools=[${tNames}]`);
       });
     }
     // 5. Build rich UI cards from tool results
-    const allToolResults = steps ? steps.flatMap((s: any) => s.toolResults || []) : (toolResults || []);
+    const allToolResults = steps
+      ? steps.flatMap((s: any) => s.toolResults || [])
+      : toolResults || [];
 
     // 5b. If text is empty but we have tool results, do a synthesis step
-    let finalText = text || '';
+    let finalText = text || "";
     if (!finalText.trim() && allToolResults.length > 0) {
-      this.logger.debug('Text is empty after tool calls, running synthesis step...');
+      this.logger.debug(
+        "Text is empty after tool calls, running synthesis step...",
+      );
       const toolSummary = allToolResults
         .map((r: any) => {
           const d = r.result || r.output;
           return `Tool "${r.toolName}" returned: ${JSON.stringify(d).slice(0, 500)}`;
         })
-        .join('\n');
+        .join("\n");
       try {
         const synthesisResult = await generateText({
-          model: google('gemini-2.5-flash'),
+          model: google("gemini-2.5-flash"),
           prompt: `Người dùng hỏi: "${message}"
 
 Dữ liệu từ database:
@@ -438,18 +494,25 @@ ${toolSummary}
 
 Hãy tổng hợp và trả lời người dùng một cách thân thiện, ngắn gọn bằng tiếng Việt. Nếu dữ liệu là danh sách phim, hãy giới thiệu 2-3 phim nổi bật và mời người dùng xem thêm. Dùng emoji phù hợp.`,
         });
-        finalText = synthesisResult.text || 'Mình đã tìm thấy thông tin, bạn xem chi tiết bên dưới nhé! 😊';
-      } catch (e) {
-        this.logger.warn('Synthesis step failed, using fallback text');
-        finalText = 'Mình đã tìm thấy thông tin cho bạn, xem chi tiết bên dưới nhé! 😊';
+        finalText =
+          synthesisResult.text ||
+          "Mình đã tìm thấy thông tin, bạn xem chi tiết bên dưới nhé! 😊";
+      } catch {
+        this.logger.warn("Synthesis step failed, using fallback text");
+        finalText =
+          "Mình đã tìm thấy thông tin cho bạn, xem chi tiết bên dưới nhé! 😊";
       }
     }
 
     // 6. Save messages to DB (only save non-empty assistant messages)
     await this.prisma.aIChatMessage.createMany({
       data: [
-        { sessionId: session.id, role: 'user', content: message },
-        { sessionId: session.id, role: 'assistant', content: finalText || 'Mình đã xử lý yêu cầu của bạn rồi nhé!' },
+        { sessionId: session.id, role: "user", content: message },
+        {
+          sessionId: session.id,
+          role: "assistant",
+          content: finalText || "Mình đã xử lý yêu cầu của bạn rồi nhé!",
+        },
       ],
     });
 
@@ -460,50 +523,52 @@ Hãy tổng hợp và trả lời người dùng một cách thân thiện, ng�
         const data = res.result || res.output;
 
         switch (res.toolName) {
-          case 'searchMovies':
-          case 'getNowShowingMovies':
-          case 'getComingSoonMovies':
-          case 'getTopRatedMovies':
-          case 'getMoviesByGenre':
+          case "searchMovies":
+          case "getNowShowingMovies":
+          case "getComingSoonMovies":
+          case "getTopRatedMovies":
+          case "getMoviesByGenre":
             if (Array.isArray(data) && data.length > 0) {
-              uiCards.push({ type: 'MOVIE_LIST', data });
+              uiCards.push({ type: "MOVIE_LIST", data });
             }
             break;
 
-          case 'getMovieDetails':
+          case "getMovieDetails":
             if (data && !data.error) {
-              uiCards.push({ type: 'MOVIE_DETAIL', data });
+              uiCards.push({ type: "MOVIE_DETAIL", data });
             }
             break;
 
-          case 'getShowtimes':
+          case "getShowtimes":
             if (Array.isArray(data)) {
-              uiCards.push({ type: 'SHOWTIME_LIST', data });
+              uiCards.push({ type: "SHOWTIME_LIST", data });
             }
             break;
 
-          case 'getCombos':
+          case "getCombos":
             if (Array.isArray(data) && data.length > 0) {
-              uiCards.push({ type: 'COMBO_LIST', data });
+              uiCards.push({ type: "COMBO_LIST", data });
             }
             break;
 
-          case 'getSeatAvailability':
+          case "getSeatAvailability":
             if (data && !data.error) {
-              uiCards.push({ type: 'SEAT_AVAILABILITY', data });
+              uiCards.push({ type: "SEAT_AVAILABILITY", data });
             }
             break;
 
-          case 'getTheaterInfo':
+          case "getTheaterInfo":
             if (data) {
-              uiCards.push({ type: 'THEATER_INFO', data });
+              uiCards.push({ type: "THEATER_INFO", data });
             }
             break;
         }
       }
     }
 
-    this.logger.log(`AI Response (${uiCards.length} cards): ${finalText?.slice(0, 100)}`);
+    this.logger.log(
+      `AI Response (${uiCards.length} cards): ${finalText?.slice(0, 100)}`,
+    );
     return {
       sessionId: session.id,
       text: finalText,
@@ -514,7 +579,7 @@ Hãy tổng hợp và trả lời người dùng một cách thân thiện, ng�
   async getHistory(sessionId: string) {
     return this.prisma.aIChatMessage.findMany({
       where: { sessionId },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: "asc" },
     });
   }
 }

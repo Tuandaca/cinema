@@ -1,7 +1,7 @@
-import { Controller, Get } from '@nestjs/common';
-import { ComboService } from './combo.service';
+import { Controller, Get } from "@nestjs/common";
+import { ComboService } from "./combo.service";
 
-@Controller('combos')
+@Controller("combos")
 export class ComboController {
   constructor(private readonly comboService: ComboService) {}
 

@@ -1,13 +1,17 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
-import { ConfigService } from '@nestjs/config';
-import { firstValueFrom } from 'rxjs';
-import { IMovieProvider, MovieBase, MovieDetails } from '../interfaces/movie-provider.interface';
+import { Injectable, Logger } from "@nestjs/common";
+import { HttpService } from "@nestjs/axios";
+import { ConfigService } from "@nestjs/config";
+import { firstValueFrom } from "rxjs";
+import {
+  IMovieProvider,
+  MovieBase,
+  MovieDetails,
+} from "../interfaces/movie-provider.interface";
 
 @Injectable()
 export class TraktProvider implements IMovieProvider {
   private readonly logger = new Logger(TraktProvider.name);
-  private readonly baseUrl = 'https://api.trakt.tv';
+  private readonly baseUrl = "https://api.trakt.tv";
 
   constructor(
     private readonly httpService: HttpService,
@@ -16,9 +20,9 @@ export class TraktProvider implements IMovieProvider {
 
   private get headers() {
     return {
-      'Content-Type': 'application/json',
-      'trakt-api-version': '2',
-      'trakt-api-key': this.configService.get<string>('TRAKT_CLIENT_ID'),
+      "Content-Type": "application/json",
+      "trakt-api-version": "2",
+      "trakt-api-key": this.configService.get<string>("TRAKT_CLIENT_ID"),
     };
   }
 
@@ -41,13 +45,15 @@ export class TraktProvider implements IMovieProvider {
     try {
       const { data } = await firstValueFrom(
         this.httpService.get(`${this.baseUrl}/movies/trending`, {
-          params: { limit, extended: 'full' },
+          params: { limit, extended: "full" },
           headers: this.headers,
         }),
       );
       return data.map((item: any) => item.movie);
     } catch (error) {
-      this.logger.error(`Failed to fetch trending movies from Trakt: ${error.message}`);
+      this.logger.error(
+        `Failed to fetch trending movies from Trakt: ${error.message}`,
+      );
       return [];
     }
   }
@@ -56,13 +62,15 @@ export class TraktProvider implements IMovieProvider {
     try {
       const { data } = await firstValueFrom(
         this.httpService.get(`${this.baseUrl}/movies/${traktId}`, {
-          params: { extended: 'full' },
+          params: { extended: "full" },
           headers: this.headers,
         }),
       );
       return data;
     } catch (error) {
-      this.logger.error(`Failed to fetch movie details from Trakt (${traktId}): ${error.message}`);
+      this.logger.error(
+        `Failed to fetch movie details from Trakt (${traktId}): ${error.message}`,
+      );
       throw error;
     }
   }

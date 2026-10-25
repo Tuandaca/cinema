@@ -1,12 +1,12 @@
-import { Controller, Get, Post, Query, UseGuards, Param } from '@nestjs/common';
-import { MoviesService } from './movies.service';
-import { MovieSyncService } from './movie-sync.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+import { Controller, Get, Post, Query, UseGuards, Param } from "@nestjs/common";
+import { MoviesService } from "./movies.service";
+import { MovieSyncService } from "./movie-sync.service";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { RolesGuard } from "../auth/guards/roles.guard";
+import { Roles } from "../auth/decorators/roles.decorator";
+import { Role } from "@prisma/client";
 
-@Controller('movies')
+@Controller("movies")
 export class MoviesController {
   constructor(
     private readonly moviesService: MoviesService,
@@ -15,29 +15,29 @@ export class MoviesController {
 
   @Get()
   async findAll(
-    @Query('genre') genre?: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
+    @Query("genre") genre?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
   ) {
     const pageNum = page ? parseInt(page, 10) : 1;
     const limitNum = limit ? parseInt(limit, 10) : 20;
     return this.moviesService.findAll(genre, pageNum, limitNum);
   }
 
-  @Get(':id')
-  async findOne(@Param('id') id: string) {
+  @Get(":id")
+  async findOne(@Param("id") id: string) {
     return this.moviesService.findOne(id);
   }
 
-  @Get(':id/showtimes')
-  async getShowtimes(@Param('id') id: string) {
+  @Get(":id/showtimes")
+  async getShowtimes(@Param("id") id: string) {
     return this.moviesService.getShowtimes(id);
   }
 
-  @Post('sync')
+  @Post("sync")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
-  async syncMovies(@Query('limit') limit?: string) {
+  async syncMovies(@Query("limit") limit?: string) {
     const syncLimit = limit ? parseInt(limit, 10) : 20;
     return this.movieSyncService.syncTrendingMovies(syncLimit);
   }

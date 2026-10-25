@@ -1,8 +1,8 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ComboService } from './combo.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { Test, TestingModule } from "@nestjs/testing";
+import { ComboService } from "./combo.service";
+import { PrismaService } from "../prisma/prisma.service";
 
-describe('ComboService', () => {
+describe("ComboService", () => {
   let service: ComboService;
 
   const mockPrismaService = {
@@ -22,7 +22,7 @@ describe('ComboService', () => {
     service = module.get<ComboService>(ComboService);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 });

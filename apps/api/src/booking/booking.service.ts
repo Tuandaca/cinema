@@ -1,13 +1,20 @@
-import { Injectable, Logger, BadRequestException, UnauthorizedException, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import Redis from 'ioredis';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  UnauthorizedException,
+  NotFoundException,
+  ForbiddenException,
+} from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import Redis from "ioredis";
 
 export interface SeatStatus {
   id: string;
   row: string;
   number: number;
   type: string;
-  status: 'AVAILABLE' | 'SELECTING' | 'LOCKED' | 'BOOKED';
+  status: "AVAILABLE" | "SELECTING" | "LOCKED" | "BOOKED";
   lockedBy?: string;
 }
 
@@ -18,31 +25,40 @@ export class BookingService {
   private redisAvailable = false;
 
   constructor(private prisma: PrismaService) {
-    const redisUrl = process.env.UPSTASH_REDIS_URL || process.env.REDIS_URL || 'redis://localhost:6379';
+    const redisUrl =
+      process.env.UPSTASH_REDIS_URL ||
+      process.env.REDIS_URL ||
+      "redis://localhost:6379";
     this.redis = new Redis(redisUrl, {
       maxRetriesPerRequest: 3,
       retryStrategy: (times) => {
         if (times > 3) {
-          this.logger.warn('Redis connection failed after 3 retries. Seat locking will be unavailable.');
+          this.logger.warn(
+            "Redis connection failed after 3 retries. Seat locking will be unavailable.",
+          );
           return null; // Stop retrying
         }
         return Math.min(times * 500, 5000);
       },
       lazyConnect: true,
     });
-    this.redis.on('error', (err) => this.logger.error('Redis Client Error', err.message));
-    this.redis.on('connect', () => {
+    this.redis.on("error", (err) =>
+      this.logger.error("Redis Client Error", err.message),
+    );
+    this.redis.on("connect", () => {
       this.redisAvailable = true;
-      this.logger.log('✅ Connected to Redis');
+      this.logger.log("✅ Connected to Redis");
     });
-    this.redis.on('close', () => {
+    this.redis.on("close", () => {
       this.redisAvailable = false;
-      this.logger.warn('⚠️ Redis connection closed');
+      this.logger.warn("⚠️ Redis connection closed");
     });
 
     // Attempt connection (non-blocking)
     this.redis.connect().catch((err) => {
-      this.logger.warn(`⚠️ Redis not available: ${err.message}. Seat locking features will be degraded.`);
+      this.logger.warn(
+        `⚠️ Redis not available: ${err.message}. Seat locking features will be degraded.`,
+      );
     });
   }
 
@@ -59,7 +75,7 @@ export class BookingService {
     });
 
     if (!showtime) {
-      throw new BadRequestException('Showtime not found');
+      throw new BadRequestException("Showtime not found");
     }
 
     return showtime;
@@ -78,7 +94,7 @@ export class BookingService {
     });
 
     if (!showtime) {
-      throw new BadRequestException('Showtime not found');
+      throw new BadRequestException("Showtime not found");
     }
 
     // Get booked seats from DB (status PAID or active PENDING within 10 minutes)
@@ -87,8 +103,8 @@ export class BookingService {
       where: {
         showtimeId,
         OR: [
-          { status: 'PAID' },
-          { status: 'PENDING', createdAt: { gte: tenMinutesAgo } },
+          { status: "PAID" },
+          { status: "PENDING", createdAt: { gte: tenMinutesAgo } },
         ],
       },
       include: {
@@ -113,7 +129,7 @@ export class BookingService {
         if (lockKeys.length > 0) {
           const values = await this.redis.mget(lockKeys);
           lockKeys.forEach((key, index) => {
-            const parts = key.split(':');
+            const parts = key.split(":");
             const seatId = parts[2];
             const userId = values[index];
             if (userId) {
@@ -128,7 +144,7 @@ export class BookingService {
         if (softLockKeys.length > 0) {
           const values = await this.redis.mget(softLockKeys);
           softLockKeys.forEach((key, index) => {
-            const parts = key.split(':');
+            const parts = key.split(":");
             const seatId = parts[2];
             const userId = values[index];
             if (userId) {
@@ -137,21 +153,23 @@ export class BookingService {
           });
         }
       } catch (err: any) {
-        this.logger.warn(`Redis unavailable while fetching seats status: ${err.message}`);
+        this.logger.warn(
+          `Redis unavailable while fetching seats status: ${err.message}`,
+        );
       }
     }
 
     return showtime.room.seats.map((seat) => {
-      let status: 'AVAILABLE' | 'SELECTING' | 'LOCKED' | 'BOOKED' = 'AVAILABLE';
+      let status: "AVAILABLE" | "SELECTING" | "LOCKED" | "BOOKED" = "AVAILABLE";
       let lockedBy = undefined;
 
       if (bookedSeatIds.has(seat.id)) {
-        status = 'BOOKED';
+        status = "BOOKED";
       } else if (lockedSeats.has(seat.id)) {
-        status = 'LOCKED';
+        status = "LOCKED";
         lockedBy = lockedSeats.get(seat.id);
       } else if (softLockedSeats.has(seat.id)) {
-        status = 'SELECTING';
+        status = "SELECTING";
         lockedBy = softLockedSeats.get(seat.id);
       }
 
@@ -166,7 +184,11 @@ export class BookingService {
     });
   }
 
-  async lockSeats(showtimeId: string, seatIds: string[], userId: string): Promise<boolean> {
+  async lockSeats(
+    showtimeId: string,
+    seatIds: string[],
+    userId: string,
+  ): Promise<boolean> {
     // 1. Check if seats are already booked in DB (PAID or active PENDING within 10m)
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
     const existingBookings = await this.prisma.bookingSeat.findFirst({
@@ -175,25 +197,29 @@ export class BookingService {
         booking: {
           showtimeId,
           OR: [
-            { status: 'PAID' },
-            { status: 'PENDING', createdAt: { gte: tenMinutesAgo } },
+            { status: "PAID" },
+            { status: "PENDING", createdAt: { gte: tenMinutesAgo } },
           ],
         },
       },
     });
 
     if (existingBookings) {
-      throw new BadRequestException('Một hoặc nhiều ghế đã được đặt hoặc đang thanh toán.');
+      throw new BadRequestException(
+        "Một hoặc nhiều ghế đã được đặt hoặc đang thanh toán.",
+      );
     }
 
     // 2. Try to lock in Redis using Lua script
     if (!this.redisAvailable) {
-      this.logger.warn('Redis unavailable: skipping Redis lock, relying on DB check only.');
+      this.logger.warn(
+        "Redis unavailable: skipping Redis lock, relying on DB check only.",
+      );
       return true;
     }
 
-    const lockKeys = seatIds.map(id => `lock:${showtimeId}:${id}`);
-    
+    const lockKeys = seatIds.map((id) => `lock:${showtimeId}:${id}`);
+
     // Check if seats are already hard-locked by SOMEONE ELSE.
     // Also upgrade soft-locks to hard-locks
     const script = `
@@ -226,24 +252,30 @@ export class BookingService {
         lockKeys.length,
         ...lockKeys,
         userId,
-        this.LOCK_TTL
+        this.LOCK_TTL,
       );
 
       if (result === 0) {
-        throw new BadRequestException('Ghế đang được người khác giữ.');
+        throw new BadRequestException("Ghế đang được người khác giữ.");
       }
     } catch (err: any) {
       if (err instanceof BadRequestException) throw err;
-      this.logger.warn(`Redis lockSeats error: ${err.message}. Proceeding without Redis.`);
+      this.logger.warn(
+        `Redis lockSeats error: ${err.message}. Proceeding without Redis.`,
+      );
     }
 
     return true;
   }
 
-  async releaseLocks(showtimeId: string, seatIds: string[], userId: string): Promise<void> {
+  async releaseLocks(
+    showtimeId: string,
+    seatIds: string[],
+    userId: string,
+  ): Promise<void> {
     if (!this.redisAvailable) return;
-    const lockKeys = seatIds.map(id => `lock:${showtimeId}:${id}`);
-    
+    const lockKeys = seatIds.map((id) => `lock:${showtimeId}:${id}`);
+
     const script = `
       local keys = KEYS
       local userId = ARGV[1]
@@ -267,10 +299,10 @@ export class BookingService {
   async releaseAllUserLocks(userId: string): Promise<void> {
     if (!this.redisAvailable) return;
     try {
-      const lockKeys = await this.redis.keys('lock:*:*');
-      const softLockKeys = await this.redis.keys('softlock:*:*');
+      const lockKeys = await this.redis.keys("lock:*:*");
+      const softLockKeys = await this.redis.keys("softlock:*:*");
       const allKeys = [...lockKeys, ...softLockKeys];
-      
+
       if (allKeys.length === 0) return;
 
       const pipeline = this.redis.pipeline();
@@ -291,7 +323,11 @@ export class BookingService {
 
   // --- TWO-PHASE LOCKING: SOFT-LOCKS ---
 
-  async softLockSeat(showtimeId: string, seatId: string, userId: string): Promise<boolean> {
+  async softLockSeat(
+    showtimeId: string,
+    seatId: string,
+    userId: string,
+  ): Promise<boolean> {
     if (!this.redisAvailable) return true;
 
     // Check if hard-locked or soft-locked by someone else
@@ -321,7 +357,14 @@ export class BookingService {
     `;
 
     try {
-      const result = await this.redis.eval(script, 2, softKey, hardKey, userId, this.LOCK_TTL);
+      const result = await this.redis.eval(
+        script,
+        2,
+        softKey,
+        hardKey,
+        userId,
+        this.LOCK_TTL,
+      );
       return result === 1;
     } catch (err: any) {
       this.logger.warn(`Redis softLockSeat error: ${err.message}`);
@@ -329,7 +372,11 @@ export class BookingService {
     }
   }
 
-  async releaseSoftLockSeat(showtimeId: string, seatId: string, userId: string): Promise<void> {
+  async releaseSoftLockSeat(
+    showtimeId: string,
+    seatId: string,
+    userId: string,
+  ): Promise<void> {
     if (!this.redisAvailable) return;
 
     const softKey = `softlock:${showtimeId}:${seatId}`;
@@ -355,19 +402,21 @@ export class BookingService {
     userId: string,
     showtimeId: string,
     seatIds: string[],
-    combos: { comboId: string; quantity: number }[]
+    combos: { comboId: string; quantity: number }[],
   ) {
     // Validate user existence — NO fallback to prevent unauthorized bookings
-    const userExists = await this.prisma.user.findUnique({ where: { id: userId } });
+    const userExists = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
     if (!userExists) {
-      throw new UnauthorizedException('Invalid user. Please log in again.');
+      throw new UnauthorizedException("Invalid user. Please log in again.");
     }
 
     const showtime = await this.prisma.showtime.findUnique({
       where: { id: showtimeId },
     });
 
-    if (!showtime) throw new BadRequestException('Showtime not found');
+    if (!showtime) throw new BadRequestException("Showtime not found");
 
     // Fetch seat details to calculate correct price per seat type
     const seats = await this.prisma.seat.findMany({
@@ -382,8 +431,8 @@ export class BookingService {
         booking: {
           showtimeId,
           OR: [
-            { status: 'PAID' },
-            { status: 'PENDING', createdAt: { gte: tenMinutesAgo } },
+            { status: "PAID" },
+            { status: "PENDING", createdAt: { gte: tenMinutesAgo } },
           ],
         },
       },
@@ -394,7 +443,7 @@ export class BookingService {
 
     if (conflictBooking) {
       throw new BadRequestException(
-        `Ghế ${conflictBooking.seat.row}${conflictBooking.seat.number} đã được đặt hoặc đang trong quá trình thanh toán bởi người khác.`
+        `Ghế ${conflictBooking.seat.row}${conflictBooking.seat.number} đã được đặt hoặc đang trong quá trình thanh toán bởi người khác.`,
       );
     }
 
@@ -405,8 +454,8 @@ export class BookingService {
     for (const seat of seats) {
       const basePrice = showtime.priceBase;
       let multiplier = 1.0;
-      if (seat.type === 'VIP') multiplier = 1.5;
-      else if (seat.type === 'SWEETBOX') multiplier = 2.0;
+      if (seat.type === "VIP") multiplier = 1.5;
+      else if (seat.type === "SWEETBOX") multiplier = 2.0;
       const seatPrice = Math.round(basePrice * multiplier);
       seatPriceMap.set(seat.id, seatPrice);
       totalAmount += seatPrice;
@@ -416,7 +465,9 @@ export class BookingService {
     const orderItemsData = [];
     if (combos && combos.length > 0) {
       for (const item of combos) {
-        const combo = await this.prisma.combo.findUnique({ where: { id: item.comboId } });
+        const combo = await this.prisma.combo.findUnique({
+          where: { id: item.comboId },
+        });
         if (combo) {
           totalAmount += combo.price * item.quantity;
           orderItemsData.push({
@@ -432,10 +483,10 @@ export class BookingService {
       data: {
         userId: userId,
         showtimeId,
-        status: 'PENDING',
+        status: "PENDING",
         totalAmount,
         seats: {
-          create: seatIds.map(seatId => ({
+          create: seatIds.map((seatId) => ({
             seatId,
             price: seatPriceMap.get(seatId) || showtime.priceBase,
           })),
@@ -449,9 +500,13 @@ export class BookingService {
     // RELEASE REDIS LOCKS IMMEDIATELY after successful DB creation
     try {
       await this.releaseLocks(showtimeId, seatIds, userId);
-      this.logger.log(`Released locks for seats ${seatIds.join(', ')} after booking ${booking.id}`);
+      this.logger.log(
+        `Released locks for seats ${seatIds.join(", ")} after booking ${booking.id}`,
+      );
     } catch (err) {
-      this.logger.error(`Failed to release locks after booking: ${err.message}`);
+      this.logger.error(
+        `Failed to release locks after booking: ${err.message}`,
+      );
     }
 
     return booking;
@@ -481,11 +536,13 @@ export class BookingService {
     });
 
     if (!booking) {
-      throw new NotFoundException('Booking not found');
+      throw new NotFoundException("Booking not found");
     }
 
     if (booking.userId !== userId) {
-      throw new ForbiddenException('Access denied: You do not own this booking');
+      throw new ForbiddenException(
+        "Access denied: You do not own this booking",
+      );
     }
 
     return booking;
