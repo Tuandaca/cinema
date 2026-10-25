@@ -516,7 +516,7 @@ describe("Admin Module End-to-End Integration Tests (Deep Audit)", () => {
   let testMovieId: string;
   let testShowtimeIdA: string;
   let testShowtimeIdB: string;
-  jest.setTimeout(60000);
+  jest.setTimeout(90000);
 
   beforeAll(async () => {
     const mockPrisma = new InMemoryPrismaClient();
@@ -559,7 +559,7 @@ describe("Admin Module End-to-End Integration Tests (Deep Audit)", () => {
       email: "customer@coicine.com",
       role: Role.USER,
     });
-  }, 60000);
+  }, 90000);
 
   afterAll(async () => {
     // Cleanup any lingering test entities

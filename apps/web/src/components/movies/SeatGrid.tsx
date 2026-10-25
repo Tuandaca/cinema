@@ -45,6 +45,11 @@ export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, 
     };
 
     const handleSeatDeselected = (data: { seatId: string; userId: string }) => {
+      setSeats(prev => prev.map(seat => 
+        seat.id === data.seatId && seat.status !== 'BOOKED' && (!seat.lockedBy || seat.lockedBy === data.userId)
+          ? { ...seat, status: 'AVAILABLE', lockedBy: undefined }
+          : seat
+      ));
       setOthersSelecting(prev => {
         const next = new Set(prev);
         next.delete(data.seatId);

@@ -53,12 +53,18 @@ export class BookingController {
     @Req() req: any,
   ) {
     const userId = req.user.id;
-    return this.bookingService.createBooking(
+    const booking = await this.bookingService.createBooking(
       userId,
       body.showtimeId,
       body.seatIds,
       body.combos,
     );
+    this.bookingGateway.notifySeatsLocked(
+      body.showtimeId,
+      body.seatIds,
+      userId,
+    );
+    return booking;
   }
 
   @UseGuards(JwtAuthGuard)

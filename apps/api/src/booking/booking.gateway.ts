@@ -19,6 +19,8 @@ const allowedOrigins = [
   "http://127.0.0.1:3001",
   "http://localhost:3005",
   "http://127.0.0.1:3005",
+  "http://localhost:3006",
+  "http://127.0.0.1:3006",
 ];
 
 @WebSocketGateway({
@@ -45,9 +47,19 @@ export class BookingGateway
 
   private logger: Logger = new Logger("BookingGateway");
   private socketToUser: Map<string, string> = new Map();
-  private userToSocketCount: Map<string, number> = new Map();
+  private userSockets: Map<string, Set<string>> = new Map();
 
   constructor(private bookingService: BookingService) {}
+
+  private trackUserSocket(socketId: string, userId: string) {
+    this.socketToUser.set(socketId, userId);
+    let sockets = this.userSockets.get(userId);
+    if (!sockets) {
+      sockets = new Set<string>();
+      this.userSockets.set(userId, sockets);
+    }
+    sockets.add(socketId);
+  }
 
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
@@ -59,21 +71,29 @@ export class BookingGateway
     if (userId) {
       this.socketToUser.delete(client.id);
 
-      const currentCount = this.userToSocketCount.get(userId) || 0;
-      const newCount = Math.max(0, currentCount - 1);
-
-      if (newCount === 0) {
-        this.userToSocketCount.delete(userId);
-        this.logger.log(
-          `User ${userId} has no more active connections. Releasing locks.`,
-        );
-        await this.bookingService.releaseAllUserLocks(userId);
-        this.server.emit("user_disconnected", { userId });
-      } else {
-        this.userToSocketCount.set(userId, newCount);
-        this.logger.log(
-          `User ${userId} still has ${newCount} active connections. Keeping locks.`,
-        );
+      const sockets = this.userSockets.get(userId);
+      if (sockets) {
+        sockets.delete(client.id);
+        if (sockets.size === 0) {
+          this.userSockets.delete(userId);
+          this.logger.log(
+            `User ${userId} has no more active connections. Releasing locks.`,
+          );
+          const released = await this.bookingService.releaseAllUserLocks(userId);
+          if (this.server) {
+            for (const item of released) {
+              this.server.to(item.showtimeId).emit("seat_deselected", {
+                seatId: item.seatId,
+                userId,
+              });
+            }
+            this.server.emit("user_disconnected", { userId });
+          }
+        } else {
+          this.logger.log(
+            `User ${userId} still has ${sockets.size} active connections. Keeping locks.`,
+          );
+        }
       }
     }
   }
@@ -84,14 +104,20 @@ export class BookingGateway
     @MessageBody() data: { showtimeId: string },
     @ConnectedSocket() client: Socket,
   ) {
+    if (
+      !data?.showtimeId ||
+      typeof data.showtimeId !== "string" ||
+      data.showtimeId.trim() === ""
+    ) {
+      return { event: "error", data: "Invalid showtimeId" };
+    }
+
     // userId comes from verified JWT, NOT from client payload
     const userId: string = (client as any).data?.user?.sub;
     if (!userId) return { event: "error", data: "Unauthorized" };
 
     client.join(data.showtimeId);
-    this.socketToUser.set(client.id, userId);
-    const count = this.userToSocketCount.get(userId) || 0;
-    this.userToSocketCount.set(userId, count + 1);
+    this.trackUserSocket(client.id, userId);
 
     this.logger.log(
       `Client ${client.id} (User: ${userId}) joined showtime ${data.showtimeId}`,
@@ -100,12 +126,38 @@ export class BookingGateway
   }
 
   @SubscribeMessage("leave_showtime")
-  handleLeaveShowtime(
+  async handleLeaveShowtime(
     @MessageBody() data: { showtimeId: string },
     @ConnectedSocket() client: Socket,
   ) {
-    client.leave(data.showtimeId);
-    this.logger.log(`Client ${client.id} left showtime ${data.showtimeId}`);
+    if (
+      !data?.showtimeId ||
+      typeof data.showtimeId !== "string" ||
+      data.showtimeId.trim() === ""
+    ) {
+      return;
+    }
+    const cleanShowtimeId = data.showtimeId.trim();
+    client.leave(cleanShowtimeId);
+    this.logger.log(`Client ${client.id} left showtime ${cleanShowtimeId}`);
+
+    const userId: string =
+      (client as any).data?.user?.sub || this.socketToUser.get(client.id);
+    if (userId) {
+      const releasedSeats =
+        await this.bookingService.releaseUserShowtimeSoftLocks(
+          cleanShowtimeId,
+          userId,
+        );
+      if (releasedSeats.length > 0 && this.server) {
+        for (const seatId of releasedSeats) {
+          this.server.to(cleanShowtimeId).emit("seat_deselected", {
+            seatId,
+            userId,
+          });
+        }
+      }
+    }
   }
 
   @UseGuards(WsJwtGuard)
@@ -120,6 +172,20 @@ export class BookingGateway
       client.emit("select_seat_failed", { ...data, reason: "Unauthorized" });
       return;
     }
+
+    if (
+      !data?.showtimeId ||
+      !data?.seatId ||
+      typeof data.showtimeId !== "string" ||
+      typeof data.seatId !== "string" ||
+      data.showtimeId.trim() === "" ||
+      data.seatId.trim() === ""
+    ) {
+      client.emit("select_seat_failed", { ...data, reason: "Invalid input" });
+      return;
+    }
+
+    this.trackUserSocket(client.id, userId);
 
     this.logger.log(
       `User ${userId} attempting to soft-lock seat ${data.seatId} for showtime ${data.showtimeId}`,
@@ -151,6 +217,17 @@ export class BookingGateway
     const userId: string = (client as any).data?.user?.sub;
     if (!userId) return;
 
+    if (
+      !data?.showtimeId ||
+      !data?.seatId ||
+      typeof data.showtimeId !== "string" ||
+      typeof data.seatId !== "string" ||
+      data.showtimeId.trim() === "" ||
+      data.seatId.trim() === ""
+    ) {
+      return;
+    }
+
     this.logger.log(
       `User ${userId} releasing soft-lock on seat ${data.seatId} for showtime ${data.showtimeId}`,
     );
@@ -167,9 +244,11 @@ export class BookingGateway
 
   // Called after successful REST /api/showtimes/:id/lock to notify clients to update UI
   notifySeatsLocked(showtimeId: string, seatIds: string[], userId: string) {
-    this.server.to(showtimeId).emit("seats_locked", {
-      seatIds,
-      userId,
-    });
+    if (this.server) {
+      this.server.to(showtimeId).emit("seats_locked", {
+        seatIds,
+        userId,
+      });
+    }
   }
 }

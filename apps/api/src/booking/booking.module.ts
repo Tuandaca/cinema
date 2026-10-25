@@ -5,9 +5,10 @@ import { BookingGateway } from "./booking.gateway";
 import { PrismaModule } from "../prisma/prisma.module";
 import { AuthModule } from "../auth/auth.module";
 import { WsJwtGuard } from "../auth/guards/ws-jwt.guard";
+import { RedisModule } from "../redis/redis.module";
 
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [PrismaModule, AuthModule, RedisModule],
   controllers: [BookingController],
   providers: [BookingService, BookingGateway, WsJwtGuard],
   exports: [BookingService],
