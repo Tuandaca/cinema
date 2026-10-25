@@ -285,3 +285,21 @@
 - **Status**: Investigating
 
 
+
+## [2026-10-25 19:55] - Prisma Engine Deserialization Panic (missing field enableTracing)
+- **Type**: Integration/Runtime
+- **Severity**: Critical
+- **File**: `apps/api/src/prisma/prisma.service.ts` / `node_modules/.prisma/client/query_engine-windows.dll.node`
+- **Agent**: cinemaAgent
+- **Root Cause**: Lệch phiên bản (Version Mismatch) giữa query engine binary của Prisma và JavaScript runtime `@prisma/client`. Thư mục `.prisma/client` trước đó chứa file DLL `query_engine-windows.dll.node` (21MB, commit `c2990dca` thuộc Prisma 6/7) yêu cầu trường `enableTracing` trong ConstructorOptions, trong khi `@prisma/client` trong dự án là bản `5.22.0` (commit `60519735` không truyền `enableTracing`), dẫn đến Rust panic khi khởi tạo `new PrismaClient()`.
+- **Error Message**:
+  ```text
+  thread '<unnamed>' panicked at query-engine\query-engine-node-api\src\engine.rs:76:45:
+              Failed to deserialize constructor options.
+              : Error { status: InvalidArg, reason: "missing field `enableTracing`", maybe_raw: 0x0 }
+  ```
+- **Fix Applied**: Đồng bộ lại toàn bộ query engine DLL (`query_engine-windows.dll.node` 19,261,952 bytes, commit `605197351a3c8bdd595af2d2a9bc3025bca48ea2`) khớp 100% với `@prisma/client@5.22.0` trên toàn bộ các workspace (`apps/api`, `apps/web` và root `node_modules`). Đã kiểm tra khởi động NestJS thành công 100% không còn panic.
+- **Prevention**: Luôn cố định phiên bản `@prisma/client` và `prisma` CLI ở cùng một phiên bản (5.22.0). Tránh sử dụng lệnh npx prisma generate từ môi trường global khác phiên bản.
+- **Status**: Fixed
+
+---
