@@ -1,5 +1,7 @@
 # 13. Deployment & DevOps Strategy
 
+> 📘 **Tài liệu hướng dẫn chi tiết từng bước**: Vui lòng tham khảo **[PRODUCTION_DEPLOYMENT_GUIDE.md](file:///d:/Projects/cinema/docs/PRODUCTION_DEPLOYMENT_GUIDE.md)** để xem hướng dẫn đầy đủ về cấu hình hạ tầng, biến môi trường, thiết lập Docker Compose / Nginx WSS, và quy trình kiểm thử khói trước khi chạy thật.
+
 ## 1. Development Environment
 - **Docker Compose:** Thiết lập môi trường local đồng nhất bao gồm PostgreSQL và Redis.
 - **Linter/Hooks:** Sử dụng `husky` và `lint-staged` để chặn commit nếu code không đạt chuẩn ESLint.

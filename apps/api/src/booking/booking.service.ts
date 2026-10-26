@@ -36,6 +36,90 @@ export class BookingService {
     @Optional() private readonly redisService: RedisService = new RedisService(),
   ) {}
 
+  async getPublicShowtimes(date?: string, movieId?: string) {
+    const trimmedDate = typeof date === "string" ? date.trim() : undefined;
+    let dayStart: Date | undefined;
+    let dayEnd: Date | undefined;
+
+    if (trimmedDate && trimmedDate !== "") {
+      const match = trimmedDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!match) {
+        throw new BadRequestException("Invalid date format. Expected YYYY-MM-DD");
+      }
+
+      const year = parseInt(match[1], 10);
+      const month = parseInt(match[2], 10);
+      const day = parseInt(match[3], 10);
+
+      if (month < 1 || month > 12 || day < 1 || day > 31) {
+        throw new BadRequestException("Invalid date format. Expected YYYY-MM-DD");
+      }
+
+      const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+      if (day > daysInMonth) {
+        throw new BadRequestException("Invalid date format. Expected YYYY-MM-DD");
+      }
+
+      dayStart = new Date(`${trimmedDate}T00:00:00.000+07:00`);
+      dayEnd = new Date(`${trimmedDate}T23:59:59.999+07:00`);
+
+      if (isNaN(dayStart.getTime()) || isNaN(dayEnd.getTime())) {
+        throw new BadRequestException("Invalid date format. Expected YYYY-MM-DD");
+      }
+    }
+
+    const cacheKey = `movies:showtimes:public:${trimmedDate || "all"}:${movieId || "all"}`;
+    if (this.redisService) {
+      try {
+        const cached = await this.redisService.get<any[]>(cacheKey);
+        if (cached) return cached;
+      } catch (err: any) {
+        this.logger.warn(`Redis get cache error: ${err.message}`);
+      }
+    }
+
+    const where: any = {};
+    if (movieId) {
+      where.movieId = movieId;
+    }
+
+    if (dayStart && dayEnd) {
+      where.startTime = {
+        gte: dayStart,
+        lte: dayEnd,
+      };
+    } else {
+      where.startTime = {
+        gte: new Date(),
+      };
+    }
+
+    const showtimes = await this.prisma.showtime.findMany({
+      where,
+      include: {
+        movie: {
+          include: {
+            genres: true,
+          },
+        },
+        room: true,
+      },
+      orderBy: {
+        startTime: "asc",
+      },
+    });
+
+    if (this.redisService) {
+      try {
+        await this.redisService.set(cacheKey, showtimes, 300);
+      } catch (err: any) {
+        this.logger.warn(`Redis set cache error: ${err.message}`);
+      }
+    }
+
+    return showtimes;
+  }
+
   async getShowtimeDetails(showtimeId: string) {
     const showtime = await this.prisma.showtime.findUnique({
       where: { id: showtimeId },
@@ -176,6 +260,16 @@ export class BookingService {
   ): Promise<boolean> {
     const validSeatIds = this.validateSeatIds(seatIds);
 
+    const showtime = await this.prisma.showtime.findUnique({
+      where: { id: showtimeId },
+    });
+    if (!showtime) {
+      throw new BadRequestException("Showtime not found");
+    }
+    if (new Date(showtime.startTime).getTime() <= Date.now()) {
+      throw new BadRequestException("Không thể giữ ghế cho suất chiếu đã quá hạn");
+    }
+
     // 1. Check if seats are already booked in DB (PAID or active PENDING within 10m)
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
     const existingBookings = await this.prisma.bookingSeat.findFirst({
@@ -270,6 +364,13 @@ export class BookingService {
     seatId: string,
     userId: string,
   ): Promise<boolean> {
+    const showtime = await this.prisma.showtime.findUnique({
+      where: { id: showtimeId },
+    });
+    if (!showtime || new Date(showtime.startTime).getTime() <= Date.now()) {
+      return false;
+    }
+
     const softKey = `softlock:${showtimeId}:${seatId}`;
     const hardKey = `lock:${showtimeId}:${seatId}`;
 
@@ -342,6 +443,10 @@ export class BookingService {
     });
 
     if (!showtime) throw new BadRequestException("Showtime not found");
+
+    if (new Date(showtime.startTime).getTime() <= Date.now()) {
+      throw new BadRequestException("Không thể đặt vé cho suất chiếu đã quá hạn");
+    }
 
     // Atomically acquire seat locks to prevent race conditions during booking creation.
     // If seats were already held/soft-locked by this user, this locks them and clears soft-locks.
@@ -457,6 +562,33 @@ export class BookingService {
     }
 
     return booking;
+  }
+
+  async getMyBookings(userId: string) {
+    return this.prisma.booking.findMany({
+      where: { userId },
+      include: {
+        showtime: {
+          include: {
+            movie: true,
+            room: true,
+          },
+        },
+        seats: {
+          include: {
+            seat: true,
+          },
+        },
+        orderItems: {
+          include: {
+            combo: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
   }
 
   async getBookingById(bookingId: string, userId: string) {

@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { movieService, Movie } from '@/services/movie.service';
+import { movieService, Movie, Showtime } from '@/services/movie.service';
+import { useToast } from '@/providers/ToastProvider';
 import {
   Star,
   Clock,
@@ -20,17 +21,9 @@ import {
   Info,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import axios from 'axios';
+import CinematicPoster from '@/components/common/CinematicPoster';
 
-const API_URL = '/api';
-
-export interface Showtime {
-  id: string;
-  startTime: string;
-  endTime: string;
-  priceBase: number;
-  room: { name: string; capacity: number };
-}
+export type { Showtime } from '@/services/movie.service';
 
 interface MovieDetailViewProps {
   id: string;
@@ -45,8 +38,35 @@ function extractYouTubeId(url: string | null): string | null {
   return match ? match[1] : null;
 }
 
+function getWeekRange(offset: number) {
+  const now = new Date();
+  const start = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + offset * 7,
+    0,
+    0,
+    0,
+    0
+  );
+  const end = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + offset * 7 + 6,
+    23,
+    59,
+    59,
+    999
+  );
+  return {
+    startDate: start.toISOString(),
+    endDate: end.toISOString(),
+  };
+}
+
 export default function MovieDetailView({ id, initialMovie }: MovieDetailViewProps) {
   const router = useRouter();
+  const { showWarning } = useToast();
   const [activeTab, setActiveTab] = useState<'showtimes' | 'overview' | 'details'>('showtimes');
   const [showShowtimes, setShowShowtimes] = useState(true);
   const [isTrailerModalOpen, setIsTrailerModalOpen] = useState(false);
@@ -59,15 +79,86 @@ export default function MovieDetailView({ id, initialMovie }: MovieDetailViewPro
     enabled: !!id,
   });
 
-  // Showtimes query
-  const { data: showtimes, isLoading: showtimesLoading } = useQuery<Showtime[]>({
-    queryKey: ['showtimes', id],
-    queryFn: async () => {
-      const showtimeRes = await axios.get(`${API_URL}/movies/${id}/showtimes`);
-      return showtimeRes.data;
-    },
-    enabled: !!id,
-  });
+  // Weekly showtimes state & pagination
+  const [weekOffset, setWeekOffset] = useState<number>(0);
+  const [allShowtimes, setAllShowtimes] = useState<Showtime[]>([]);
+  const [hasMore, setHasMore] = useState<boolean>(true);
+  const [showtimesLoading, setShowtimesLoading] = useState<boolean>(true);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!id) return;
+    let isMounted = true;
+    setShowtimesLoading(true);
+    setWeekOffset(0);
+
+    const { startDate, endDate } = getWeekRange(0);
+
+    movieService
+      .getShowtimes(id, { startDate, endDate })
+      .then((res) => {
+        if (!isMounted) return;
+        const items = res.showtimes || res;
+        setAllShowtimes(
+          [...items].sort(
+            (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+          )
+        );
+        setHasMore(Boolean(res.hasMore));
+        setShowtimesLoading(false);
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        console.error('Failed to load showtimes:', err);
+        setAllShowtimes([]);
+        setHasMore(false);
+        setShowtimesLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [id]);
+
+  const handleLoadMoreWeek = async () => {
+    if (isLoadingMore || !hasMore || !id) return;
+    setIsLoadingMore(true);
+    const nextOffset = weekOffset + 1;
+    const { startDate, endDate } = getWeekRange(nextOffset);
+
+    try {
+      const res = await movieService.getShowtimes(id, { startDate, endDate });
+      const newItems = res.showtimes || res;
+
+      setAllShowtimes((prev) => {
+        const existingIds = new Set(prev.map((s) => s.id));
+        const filtered = newItems.filter((s) => !existingIds.has(s.id));
+        const combined = [...prev, ...filtered];
+        return combined.sort(
+          (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+        );
+      });
+
+      setWeekOffset(nextOffset);
+      if (!res.hasMore || newItems.length === 0) {
+        setHasMore(false);
+      } else {
+        setHasMore(Boolean(res.hasMore));
+      }
+    } catch (err) {
+      console.error('Failed to load more showtimes:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  const handleSelectShowtime = (showtimeId: string, isPast: boolean) => {
+    if (isPast) {
+      showWarning('Suất chiếu này đã diễn ra, vui lòng chọn suất chiếu khác.');
+      return;
+    }
+    router.push(`/movies/${id}/booking?showtimeId=${showtimeId}`);
+  };
 
   const youtubeVideoId = useMemo(() => {
     return extractYouTubeId(movie?.trailerUrl || null);
@@ -104,10 +195,6 @@ export default function MovieDetailView({ id, initialMovie }: MovieDetailViewPro
     if (showtimesEl) {
       showtimesEl.scrollIntoView({ behavior: 'smooth' });
     }
-  };
-
-  const handleSelectShowtime = (showtimeId: string) => {
-    router.push(`/movies/${id}/booking?showtimeId=${showtimeId}`);
   };
 
   return (
@@ -166,22 +253,17 @@ export default function MovieDetailView({ id, initialMovie }: MovieDetailViewPro
             animate={{ opacity: 1, y: 0 }}
             className="w-full md:w-1/3 lg:w-1/4 shrink-0"
           >
-            <div className="rounded-2xl overflow-hidden shadow-2xl border border-white/10 group relative">
-              {movie.posterUrl ? (
-                <img
-                  src={movie.posterUrl}
-                  alt={movie.title}
-                  className="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-              ) : (
-                <div className="aspect-[2/3] bg-neutral-800 flex items-center justify-center text-gray-500">
-                  Không có poster
-                </div>
-              )}
+            <div className="rounded-2xl overflow-hidden shadow-2xl border border-white/10 group relative aspect-[2/3]">
+              <CinematicPoster
+                src={movie.posterUrl}
+                alt={movie.title}
+                title={movie.title}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
               {movie.trailerUrl && (
                 <button
                   onClick={() => setIsTrailerModalOpen(true)}
-                  className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                  className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10"
                 >
                   <div className="w-16 h-16 rounded-full bg-coicine-gold text-black flex items-center justify-center shadow-lg shadow-coicine-gold/30">
                     <Play size={28} fill="black" />
@@ -333,49 +415,135 @@ export default function MovieDetailView({ id, initialMovie }: MovieDetailViewPro
                         <Loader2 className="animate-spin text-coicine-gold" size={24} />
                         <span>Đang tải danh sách suất chiếu...</span>
                       </div>
-                    ) : showtimes && showtimes.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {showtimes.map((st) => (
-                          <button
-                            key={st.id}
-                            onClick={() => handleSelectShowtime(st.id)}
-                            className="group flex items-center justify-between p-5 bg-zinc-900/60 rounded-xl border border-white/5 hover:border-coicine-gold/30 hover:bg-zinc-800/60 transition-all text-left"
-                          >
-                            <div>
-                              <p className="text-white font-bold mb-1">
-                                {new Date(st.startTime).toLocaleDateString('vi-VN', {
-                                  weekday: 'short',
-                                  day: 'numeric',
-                                  month: 'short',
-                                })}
-                              </p>
-                              <p className="text-coicine-gold font-mono text-lg font-semibold">
-                                {new Date(st.startTime).toLocaleTimeString([], {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                                {' — '}
-                                {new Date(st.endTime).toLocaleTimeString([], {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </p>
-                              <div className="flex items-center gap-2 mt-2 text-white/60 text-sm">
-                                <MapPin size={14} className="text-coicine-gold" /> {st.room.name}
-                              </div>
+                    ) : allShowtimes && allShowtimes.length > 0 ? (
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {allShowtimes.map((st) => {
+                            const isPast =
+                              new Date(st.startTime).getTime() <= Date.now();
+                            return (
+                              <button
+                                key={st.id}
+                                disabled={isPast}
+                                onClick={() => handleSelectShowtime(st.id, isPast)}
+                                className={`group flex items-center justify-between p-5 rounded-xl border transition-all text-left ${
+                                  isPast
+                                    ? 'opacity-50 cursor-not-allowed bg-white/5 border-white/10 text-white/40 line-through-none'
+                                    : 'bg-zinc-900/60 border-white/5 hover:border-coicine-gold/30 hover:bg-zinc-800/60 cursor-pointer'
+                                }`}
+                              >
+                                <div>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <p
+                                      className={`font-bold ${
+                                        isPast ? 'text-white/40' : 'text-white'
+                                      }`}
+                                    >
+                                      {new Date(st.startTime).toLocaleDateString(
+                                        'vi-VN',
+                                        {
+                                          weekday: 'short',
+                                          day: 'numeric',
+                                          month: 'short',
+                                        }
+                                      )}
+                                    </p>
+                                    {isPast && (
+                                      <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-zinc-800 text-zinc-400 border border-zinc-700/60 inline-flex items-center gap-1">
+                                        Đã chiếu
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p
+                                    className={`font-mono text-lg font-semibold ${
+                                      isPast
+                                        ? 'text-zinc-500'
+                                        : 'text-coicine-gold'
+                                    }`}
+                                  >
+                                    {new Date(st.startTime).toLocaleTimeString(
+                                      [],
+                                      {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      }
+                                    )}
+                                    {' — '}
+                                    {new Date(st.endTime).toLocaleTimeString(
+                                      [],
+                                      {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      }
+                                    )}
+                                  </p>
+                                  <div
+                                    className={`flex items-center gap-2 mt-2 text-sm ${
+                                      isPast ? 'text-zinc-500' : 'text-white/60'
+                                    }`}
+                                  >
+                                    <MapPin
+                                      size={14}
+                                      className={
+                                        isPast
+                                          ? 'text-zinc-500'
+                                          : 'text-coicine-gold'
+                                      }
+                                    />{' '}
+                                    {st.room.name}
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p
+                                    className={`font-bold text-xl ${
+                                      isPast ? 'text-zinc-500' : 'text-cyan-400'
+                                    }`}
+                                  >
+                                    {st.priceBase.toLocaleString('vi-VN')} đ
+                                  </p>
+                                  {isPast ? (
+                                    <span className="text-xs text-zinc-500 block mt-2">
+                                      Đã qua
+                                    </span>
+                                  ) : (
+                                    <ChevronRight
+                                      size={20}
+                                      className="text-white/30 group-hover:text-coicine-gold transition-colors ml-auto mt-2"
+                                    />
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Weekly Pagination Controls */}
+                        <div className="mt-8 text-center">
+                          {hasMore ? (
+                            <button
+                              onClick={handleLoadMoreWeek}
+                              disabled={isLoadingMore}
+                              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 text-white font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                            >
+                              {isLoadingMore ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin text-coicine-gold" />
+                                  <span>Đang tải suất chiếu tuần tới...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Calendar className="w-4 h-4 text-coicine-gold" />
+                                  <span>Xem thêm suất chiếu tuần tới</span>
+                                </>
+                              )}
+                            </button>
+                          ) : (
+                            <div className="p-4 rounded-xl bg-zinc-900/40 border border-white/5 text-center text-sm text-gray-400 max-w-lg mx-auto">
+                              Đã hiển thị toàn bộ suất chiếu khả dụng của phim
                             </div>
-                            <div className="text-right">
-                              <p className="text-cyan-400 font-bold text-xl">
-                                {st.priceBase.toLocaleString('vi-VN')} đ
-                              </p>
-                              <ChevronRight
-                                size={20}
-                                className="text-white/30 group-hover:text-coicine-gold transition-colors ml-auto mt-2"
-                              />
-                            </div>
-                          </button>
-                        ))}
-                      </div>
+                          )}
+                        </div>
+                      </>
                     ) : (
                       <div className="p-8 bg-zinc-900/40 rounded-xl border border-white/5 text-center text-gray-400">
                         <p className="text-lg font-medium mb-2">Chưa có suất chiếu khả dụng</p>

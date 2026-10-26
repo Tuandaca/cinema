@@ -8,9 +8,11 @@ import SeatGrid from '@/components/movies/SeatGrid';
 // Note: In Next.js 15 App router, params is a promise but since this is a client component
 // we can use standard React.use if needed, but often params are directly accessible or we use useParams
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Calendar, Clock, MapPin } from 'lucide-react';
+import { Calendar, Clock, MapPin, AlertCircle, ArrowLeft } from 'lucide-react';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/providers/AuthProvider';
+import { useToast } from '@/providers/ToastProvider';
+import CinematicPoster from '@/components/common/CinematicPoster';
 
 export default function BookingPage() {
   const params = useParams();
@@ -19,6 +21,7 @@ export default function BookingPage() {
   const showtimeId = searchParams.get('showtimeId') as string;
   
   const { token, user } = useAuth();
+  const { showError } = useToast();
   const [selectedSeatIds, setSelectedSeatIds] = useState<string[]>([]);
   const [isLocking, setIsLocking] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -37,8 +40,8 @@ export default function BookingPage() {
           if (remaining <= 0) {
             clearInterval(interval);
             localStorage.removeItem(`booking_start_${showtimeId}`);
-            alert('Hết thời gian giữ ghế. Vui lòng chọn lại!');
-            window.location.reload();
+            showError('Hết thời gian giữ ghế. Vui lòng chọn lại!');
+            setTimeout(() => window.location.reload(), 1500);
           } else {
             setTimeLeft(remaining);
           }
@@ -50,7 +53,7 @@ export default function BookingPage() {
       setTimeLeft(null);
     }
     return () => clearInterval(interval);
-  }, [hasSelectedSeats, showtimeId]);
+  }, [hasSelectedSeats, showtimeId, showError]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -70,8 +73,11 @@ export default function BookingPage() {
     enabled: !!showtimeId,
   });
 
+  const movieId = (params?.id as string) || (showtime as any)?.movie?.id || '';
+  const isExpired = Boolean(showtime && new Date(showtime.startTime).getTime() <= Date.now());
+
   const handleLockSeats = async () => {
-    if (selectedSeatIds.length === 0 || !token) return;
+    if (isExpired || selectedSeatIds.length === 0 || !token) return;
     setIsLocking(true);
     try {
       await bookingService.lockSeats(showtimeId, selectedSeatIds, token);
@@ -79,7 +85,7 @@ export default function BookingPage() {
       const seatsQuery = selectedSeatIds.join(',');
       router.push(`/checkout?showtimeId=${showtimeId}&seats=${seatsQuery}`);
     } catch (err: any) {
-      alert(err.message || 'Failed to lock seats');
+      showError(err.message || 'Failed to lock seats');
     } finally {
       setIsLocking(false);
     }
@@ -89,17 +95,57 @@ export default function BookingPage() {
   if (seatsError) return <div className="min-h-screen flex items-center justify-center text-red-500">Error loading data</div>;
   if (!seats || !showtime) return <div className="min-h-screen flex items-center justify-center">Data not found</div>;
 
+  if (isExpired) {
+    return (
+      <ProtectedRoute>
+        <div className="min-h-screen bg-coicine-charcoal text-white pt-28 pb-16 flex items-center justify-center px-4">
+          <div className="max-w-md w-full bg-zinc-900/90 border border-red-500/30 rounded-2xl p-8 text-center backdrop-blur-xl shadow-2xl">
+            <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-5 text-red-400">
+              <AlertCircle size={36} />
+            </div>
+            <h1 className="text-2xl font-bold font-headline text-white mb-3">
+              Suất chiếu đã kết thúc
+            </h1>
+            <p className="text-gray-300 text-sm mb-4 leading-relaxed">
+              Suất chiếu của phim{' '}
+              <span className="text-white font-semibold">{showtime.movie?.title}</span>{' '}
+              vào lúc{' '}
+              <span className="text-coicine-gold font-mono font-bold">
+                {new Date(showtime.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}{' '}
+                — {new Date(showtime.startTime).toLocaleDateString('vi-VN')}
+              </span>{' '}
+              đã diễn ra hoặc đã kết thúc.
+            </p>
+            <p className="text-xs text-red-400/90 mb-6 bg-red-500/10 py-2.5 px-3 rounded-lg border border-red-500/20">
+              Hệ thống đã khóa tính năng chọn ghế và đặt vé cho suất chiếu này.
+            </p>
+            <button
+              onClick={() => router.push(`/movies/${movieId}`)}
+              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-coicine-gold text-black rounded-full font-bold hover:bg-yellow-400 transition-all shadow-lg shadow-coicine-gold/20"
+            >
+              <ArrowLeft size={18} />
+              <span>Quay lại chọn suất chiếu khác</span>
+            </button>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
+
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-background pt-24 pb-12">
       <div className="container mx-auto px-4 max-w-5xl">
         {/* Movie Info Banner */}
         <div className="mb-8 flex flex-col md:flex-row gap-6 items-center bg-zinc-900/50 p-6 rounded-2xl border border-white/5 backdrop-blur-md">
-          {showtime.movie.posterUrl ? (
-            <img src={showtime.movie.posterUrl} alt={showtime.movie.title} className="w-24 h-auto rounded-lg shadow-lg" />
-          ) : (
-            <div className="w-24 h-36 bg-zinc-800 rounded-lg flex items-center justify-center text-xs text-zinc-500">No Poster</div>
-          )}
+          <div className="w-24 h-36 flex-shrink-0 overflow-hidden rounded-lg shadow-lg">
+            <CinematicPoster
+              src={showtime.movie.posterUrl}
+              alt={showtime.movie.title}
+              title={showtime.movie.title}
+              className="w-24 h-36 object-cover rounded-lg"
+            />
+          </div>
           <div className="flex-1">
             <h1 className="text-3xl font-outfit font-bold mb-3">{showtime.movie.title}</h1>
             <div className="flex flex-wrap gap-4 text-white/70 text-sm">

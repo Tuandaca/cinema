@@ -3,6 +3,7 @@ import * as bcrypt from 'bcryptjs';
 import axios from 'axios';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
+import { seedFutureShowtimes } from '../src/scripts/seed-future-showtimes';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -30,45 +31,121 @@ async function main() {
   // 2. Seed Theater Rooms
   const room1 = await prisma.theaterRoom.upsert({
     where: { id: 'room-1' },
-    update: {},
+    update: {
+      name: 'Premium Cinema 01 / Standard Hall',
+      capacity: 45,
+    },
     create: {
       id: 'room-1',
-      name: 'Premium Cinema 01',
-      capacity: 24,
+      name: 'Premium Cinema 01 / Standard Hall',
+      capacity: 45,
     },
   });
 
   const room2 = await prisma.theaterRoom.upsert({
     where: { id: 'room-2' },
-    update: {},
+    update: {
+      name: 'Hall 01 - IMAX Experience',
+      capacity: 72,
+    },
     create: {
       id: 'room-2',
-      name: 'IMAX Experience',
-      capacity: 32,
+      name: 'Hall 01 - IMAX Experience',
+      capacity: 72,
     },
   });
-  console.log('✅ Theater rooms created.');
 
-  // 3. Seed Seats for Room 1 (Simple grid)
-  const rows = ['A', 'B', 'C'];
-  const cols = [1, 2, 3, 4, 5, 6, 7, 8];
+  const room3 = await prisma.theaterRoom.upsert({
+    where: { id: 'room-3' },
+    update: {
+      name: 'Cinema 03 - Gold Class VIP',
+      capacity: 24,
+    },
+    create: {
+      id: 'room-3',
+      name: 'Cinema 03 - Gold Class VIP',
+      capacity: 24,
+    },
+  });
+  console.log('✅ Theater rooms created/updated.');
 
-  for (const row of rows) {
-    for (const num of cols) {
+  // 3. Seed Seats for Room 1 (45 seats: Rows A-E x 9 cols; A-C NORMAL, D-E VIP)
+  // Strictly preserves existing booked seats: seat-r1-A3..A5, seat-r1-B3..B5
+  for (const row of ['A', 'B', 'C', 'D', 'E']) {
+    for (let num = 1; num <= 9; num++) {
+      const type = ['D', 'E'].includes(row) ? 'VIP' : 'NORMAL';
       await prisma.seat.upsert({
-        where: { id: `seat-r1-${row}${num}` },
-        update: {},
+        where: {
+          roomId_row_number: {
+            roomId: room1.id,
+            row,
+            number: num,
+          },
+        },
+        update: { type },
         create: {
           id: `seat-r1-${row}${num}`,
           roomId: room1.id,
-          row: row,
+          row,
           number: num,
-          type: row === 'C' ? 'VIP' : 'NORMAL',
+          type,
         },
       });
     }
   }
-  console.log('✅ Seats for Room 1 created.');
+  console.log('✅ Seats for Room 1 (Standard Hall: 45 seats) created/updated.');
+
+  // 3b. Seed Seats for Room 2 (72 seats: Rows A-H x 9 cols; A-B NORMAL, C-F VIP, G-H NORMAL)
+  // Strictly preserves existing booked seats: seat-room-2-A3..A5
+  for (const row of ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']) {
+    for (let num = 1; num <= 9; num++) {
+      const type = ['C', 'D', 'E', 'F'].includes(row) ? 'VIP' : 'NORMAL';
+      await prisma.seat.upsert({
+        where: {
+          roomId_row_number: {
+            roomId: room2.id,
+            row,
+            number: num,
+          },
+        },
+        update: { type },
+        create: {
+          id: `seat-room-2-${row}${num}`,
+          roomId: room2.id,
+          row,
+          number: num,
+          type,
+        },
+      });
+    }
+  }
+  console.log('✅ Seats for Room 2 (IMAX Experience: 72 seats) created/updated.');
+
+  // 3c. Seed Seats for Room 3 (24 SWEETBOX seats: Rows A-C x 8 cols; 100% SWEETBOX couples)
+  // Clean up room-3 duplicate seats completely (room-3 has 0 bookings)
+  await prisma.seat.deleteMany({ where: { roomId: room3.id } });
+  for (const row of ['A', 'B', 'C']) {
+    for (let col = 1; col <= 8; col++) {
+      await prisma.seat.upsert({
+        where: {
+          roomId_row_number: {
+            roomId: room3.id,
+            row,
+            number: col,
+          },
+        },
+        update: { type: 'SWEETBOX' },
+        create: {
+          id: `seat-room-3-${row}${col}`,
+          roomId: room3.id,
+          row,
+          number: col,
+          type: 'SWEETBOX',
+        },
+      });
+    }
+  }
+  console.log('✅ Seats for Room 3 (Gold Class SWEETBOX: 24 seats) created.');
 
   // 4. Seed Initial Movies
   console.log('🎬 Seeding movies...');
@@ -79,7 +156,7 @@ async function main() {
       id: 'movie-avengers-endgame',
       title: 'Avengers: Endgame',
       description: 'After the devastating events of Avengers: Infinity War, the universe is in ruins. With the help of remaining allies, the Avengers assemble once more in order to reverse Thanos\' actions and restore balance to the universe.',
-      posterUrl: 'https://image.tmdb.org/t/p/original/or06seB2JWytw08jgjz6ldmNet1.jpg',
+      posterUrl: 'https://image.tmdb.org/t/p/original/or06FN3Dka5tukK1e9sl16pB3iy.jpg',
       trailerUrl: 'https://www.youtube.com/watch?v=TcMBFSGVi1c',
       rating: 8.4,
       runtime: 181,
@@ -91,7 +168,7 @@ async function main() {
       id: 'movie-inception',
       title: 'Inception',
       description: 'A thief who steals corporate secrets through the use of dream-sharing technology is given the inverse task of planting an idea into the mind of a C.E.O.',
-      posterUrl: 'https://image.tmdb.org/t/p/original/o0Ol4kg4VIs48ccBs0xeIYcYy5c.jpg',
+      posterUrl: 'https://image.tmdb.org/t/p/original/edv5CZvWj09upOsy2Y6IwDhK8bt.jpg',
       trailerUrl: 'https://www.youtube.com/watch?v=YoHD9XEInc0',
       rating: 8.8,
       runtime: 148,
@@ -103,7 +180,7 @@ async function main() {
       id: 'movie-interstellar',
       title: 'Interstellar',
       description: 'A team of explorers travel through a wormhole in space in an attempt to ensure humanity\'s survival.',
-      posterUrl: 'https://image.tmdb.org/t/p/original/gEU2QvH353eRPmN28j260v2Ghp1.jpg',
+      posterUrl: 'https://image.tmdb.org/t/p/original/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg',
       trailerUrl: 'https://www.youtube.com/watch?v=zSWdZAZE3Tc',
       rating: 8.6,
       runtime: 169,
@@ -200,49 +277,9 @@ async function main() {
     }
   }
 
-  // 4.5. Seed Showtimes for seeded movies dynamically (3 days, dynamic times)
-  console.log('⏰ Seeding Showtimes dynamically for the next 3 days...');
-  const rooms = [room1, room2];
-  const now = new Date();
-  
-  // Clean old future showtimes to prevent DB clutter during development
-  await prisma.showtime.deleteMany({
-    where: {
-      startTime: { gte: now }
-    }
-  });
-
-  let showtimeCount = 0;
-  for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
-    const date = new Date();
-    date.setDate(now.getDate() + dayOffset);
-
-    // Suất chiếu: 09:00, 12:00, 15:00, 18:00, 21:00
-    const hours = [9, 12, 15, 18, 21];
-
-    for (const movie of seededMovies) {
-      for (let h = 0; h < hours.length; h++) {
-        const room = rooms[h % rooms.length];
-        const startTime = new Date(date);
-        startTime.setHours(hours[h], 0, 0, 0);
-
-        const endTime = new Date(startTime);
-        endTime.setMinutes(startTime.getMinutes() + (movie.runtime || 120));
-
-        await prisma.showtime.create({
-          data: {
-            movieId: movie.id,
-            roomId: room.id,
-            startTime,
-            endTime,
-            priceBase: 80000, // 80k VNĐ base price
-          },
-        });
-        showtimeCount++;
-      }
-    }
-  }
-  console.log(`✅ Seeded ${showtimeCount} dynamic showtimes (7 days, 5 slots/day).`);
+  // 4.5. Seed Showtimes: Ensure ~5 showtimes/day balanced schedule across 3 rooms
+  console.log('⏰ Running seedFutureShowtimes() to establish balanced ~5 showtimes/day schedule...');
+  await seedFutureShowtimes();
 
   // 5. Seed F&B Combos
   const combos = [
@@ -250,19 +287,19 @@ async function main() {
       id: 'combo-1',
       name: 'Single Combo',
       description: '1 Popcorn (L) + 1 Drink (L)',
-      price: 15.0,
+      price: 65000,
     },
     {
       id: 'combo-2',
       name: 'Couple Combo',
       description: '1 Popcorn (L) + 2 Drinks (L)',
-      price: 22.0,
+      price: 95000,
     },
     {
       id: 'combo-3',
       name: 'Family Combo',
       description: '2 Popcorns (L) + 4 Drinks (L) + 2 Snack',
-      price: 45.0,
+      price: 145000,
     },
   ];
 
@@ -270,11 +307,37 @@ async function main() {
   for (const combo of combos) {
     await prisma.combo.upsert({
       where: { id: combo.id },
-      update: {},
+      update: {
+        price: combo.price,
+      },
       create: combo,
     });
   }
   console.log('✅ F&B Combos created.');
+
+  // 6. Synchronize verified posters for all movies in database
+  console.log('🖼️ Synchronizing verified 200 OK poster URLs for movies...');
+  const VERIFIED_POSTERS: Record<string, string> = {
+    'movie-avengers-endgame': 'https://image.tmdb.org/t/p/original/or06FN3Dka5tukK1e9sl16pB3iy.jpg',
+    'movie-inception': 'https://image.tmdb.org/t/p/original/edv5CZvWj09upOsy2Y6IwDhK8bt.jpg',
+    'movie-interstellar': 'https://image.tmdb.org/t/p/original/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg',
+    '3166a2a1-34fa-49a3-84c6-7bccbbc3b07d': 'https://image.tmdb.org/t/p/original/qE0FswzjACs2kvAycYVS2zcmgec.jpg', // Balls Up
+    'faa5fe96-1e32-4cb0-ab5e-8fb207a4aebd': 'https://image.tmdb.org/t/p/original/kyeqWdyUXW608qlYkRqosgbbJyK.jpg', // Avatar: Fire and Ash
+    '31c062d6-54be-44b7-9e67-52ff2a67113e': 'https://image.tmdb.org/t/p/original/8912AsVuS7Sj915apArUFbv6F9L.jpg', // The Devil Wears Prada
+  };
+
+  for (const [movieId, posterUrl] of Object.entries(VERIFIED_POSTERS)) {
+    await prisma.movie.updateMany({
+      where: { id: movieId },
+      data: { posterUrl },
+    });
+  }
+  // Also ensure Balls Up by title has verified poster
+  await prisma.movie.updateMany({
+    where: { title: 'Balls Up' },
+    data: { posterUrl: 'https://image.tmdb.org/t/p/original/qE0FswzjACs2kvAycYVS2zcmgec.jpg' },
+  });
+  console.log('✅ Verified poster URLs synchronized.');
 
   console.log('✨ Seeding completed successfully.');
 

@@ -94,34 +94,100 @@ export class MoviesService {
     });
   }
 
-  async getShowtimes(movieId: string): Promise<ShowtimeWithRoom[]> {
-    const cacheKey = `movies:showtimes:${movieId}`;
+  async getShowtimes(
+    movieId: string,
+    startDate?: string,
+    endDate?: string,
+    limit?: number,
+  ): Promise<ShowtimeWithRoom[] & { hasMore: boolean }> {
+    const cacheKey = `movies:showtimes:${movieId}:${startDate || ""}:${endDate || ""}`;
     if (this.redisService) {
-      const cached = await this.redisService.get<ShowtimeWithRoom[]>(cacheKey);
+      const cached = await this.redisService.get<{
+        showtimes: ShowtimeWithRoom[];
+        hasMore: boolean;
+      } | ShowtimeWithRoom[]>(cacheKey);
       if (cached) {
-        return cached;
+        if (Array.isArray(cached)) {
+          return Object.assign(cached, { hasMore: false });
+        }
+        return Object.assign(cached.showtimes, { hasMore: cached.hasMore });
       }
     }
 
-    const showtimes = await this.prisma.showtime.findMany({
-      where: {
-        movieId,
-        startTime: {
-          gte: new Date(), // Only future showtimes
-        },
+    const start = startDate ? new Date(startDate) : new Date();
+    let end: Date | undefined;
+    if (endDate) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+        end = new Date(`${endDate}T23:59:59.999Z`);
+      } else {
+        end = new Date(endDate);
+      }
+    }
+
+    const where: Prisma.ShowtimeWhereInput = {
+      movieId,
+      startTime: {
+        gte: start,
+        ...(end ? { lte: end } : {}),
       },
+    };
+
+    const showtimes = await this.prisma.showtime.findMany({
+      where,
       include: {
         room: true,
       },
       orderBy: {
         startTime: "asc",
       },
+      ...(limit ? { take: limit } : {}),
     });
 
-    if (this.redisService) {
-      await this.redisService.set(cacheKey, showtimes, 600);
+    let hasMore = false;
+    if (end) {
+      const nextShowtime = await this.prisma.showtime.findFirst({
+        where: {
+          movieId,
+          startTime: {
+            gt: end,
+          },
+        },
+        select: { id: true },
+      });
+      hasMore = !!nextShowtime;
+    } else if (limit && showtimes.length >= limit) {
+      const lastShowtime = showtimes[showtimes.length - 1];
+      if (lastShowtime) {
+        const nextShowtime = await this.prisma.showtime.findFirst({
+          where: {
+            movieId,
+            startTime: {
+              gt: lastShowtime.startTime,
+            },
+          },
+          select: { id: true },
+        });
+        hasMore = !!nextShowtime;
+      }
     }
 
-    return showtimes;
+    if (this.redisService) {
+      await this.redisService.set(cacheKey, { showtimes, hasMore }, 600);
+    }
+
+    return Object.assign(showtimes, { hasMore });
+  }
+
+  async hasMoreShowtimes(movieId: string, afterDate: Date): Promise<boolean> {
+    const nextShowtime = await this.prisma.showtime.findFirst({
+      where: {
+        movieId,
+        startTime: {
+          gt: afterDate,
+        },
+      },
+      select: { id: true },
+    });
+    return !!nextShowtime;
   }
 }

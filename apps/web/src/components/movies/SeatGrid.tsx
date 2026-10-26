@@ -5,6 +5,7 @@ import { Seat } from '@/services/booking.service';
 import { useSocket } from '@/providers/SocketProvider';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/providers/AuthProvider';
+import { useToast } from '@/providers/ToastProvider';
 
 interface SeatGridProps {
   showtimeId: string;
@@ -17,6 +18,7 @@ export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, 
   const { user } = useAuth();
   const currentUserId = propUserId || user?.id || '';
   const { socket, isConnected } = useSocket();
+  const { showError, showWarning } = useToast();
   const queryClient = useQueryClient();
   const [seats, setSeats] = useState<Seat[]>(initialSeats);
   const [selectedSeatIds, setSelectedSeatIds] = useState<Set<string>>(new Set());
@@ -25,16 +27,55 @@ export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, 
   // Update local seats when initialSeats change (e.g. from refetch)
   useEffect(() => {
     setSeats(initialSeats);
-  }, [initialSeats]);
+
+    // Synchronize othersSelecting and own selection from initialSeats
+    const others = new Set<string>();
+    const mine = new Set<string>();
+
+    initialSeats.forEach(seat => {
+      if (seat.status === 'SELECTING') {
+        if (seat.lockedBy && currentUserId && seat.lockedBy === currentUserId) {
+          mine.add(seat.id);
+        } else {
+          others.add(seat.id);
+        }
+      }
+    });
+
+    setOthersSelecting(prev => {
+      const merged = new Set(prev);
+      others.forEach(id => merged.add(id));
+      return merged;
+    });
+
+    if (mine.size > 0) {
+      setSelectedSeatIds(prev => {
+        const merged = new Set(prev);
+        mine.forEach(id => merged.add(id));
+        return merged;
+      });
+    }
+  }, [initialSeats, currentUserId]);
 
   // Listen to socket events
   useEffect(() => {
-    if (!socket || !isConnected) return;
+    if (!socket) return;
 
-    socket.emit('join_showtime', { showtimeId, userId: currentUserId });
+    // Helper to join the showtime room — called on mount and on reconnect
+    const joinRoom = () => {
+      if (socket.connected) {
+        socket.emit('join_showtime', { showtimeId });
+      }
+    };
+
+    // If already connected when this effect runs, join immediately
+    if (isConnected) {
+      joinRoom();
+    }
 
     const handleConnect = () => {
-      // Refetch seats from API when socket reconnects to ensure no missed 'seats_locked' events
+      // Rejoin room on reconnect and refetch seats to catch any missed 'seats_locked' events
+      joinRoom();
       queryClient.invalidateQueries({ queryKey: ['seats', showtimeId] });
     };
 
@@ -94,7 +135,7 @@ export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, 
 
     const handleSelectFailed = (data: { seatId: string; userId: string }) => {
       if (data.userId === currentUserId) {
-        alert('Ghế này vừa bị người khác chọn mất!');
+        showError('Ghế này vừa bị người khác chọn mất!');
         setSelectedSeatIds(prev => {
           const next = new Set(prev);
           next.delete(data.seatId);
@@ -114,15 +155,18 @@ export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, 
     socket.on('select_seat_failed', handleSelectFailed);
 
     return () => {
-      socket.emit('leave_showtime', { showtimeId });
       socket.off('connect', handleConnect);
       socket.off('seat_selecting', handleSeatSelecting);
       socket.off('seat_deselected', handleSeatDeselected);
       socket.off('seats_locked', handleSeatsLocked);
       socket.off('select_seat_success', handleSelectSuccess);
       socket.off('select_seat_failed', handleSelectFailed);
+      // Leave showtime room on cleanup
+      if (socket.connected) {
+        socket.emit('leave_showtime', { showtimeId });
+      }
     };
-  }, [socket, isConnected, showtimeId, currentUserId, queryClient]);
+  }, [socket, showtimeId, currentUserId, queryClient]);
 
   // Update parent when selection changes
   useEffect(() => {
@@ -130,8 +174,12 @@ export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, 
   }, [selectedSeatIds, onSelectionChange]);
 
   const handleSeatClick = (seat: Seat) => {
-    const isOthersSelecting = othersSelecting.has(seat.id) && !selectedSeatIds.has(seat.id);
-    if (seat.status === 'BOOKED' || (seat.status === 'LOCKED' && seat.lockedBy !== currentUserId) || isOthersSelecting) {
+    const isSelected = selectedSeatIds.has(seat.id);
+    const isOthersSelecting = (othersSelecting.has(seat.id) || (seat.status === 'SELECTING' && seat.lockedBy !== currentUserId)) && !isSelected;
+    const isLocked = seat.status === 'LOCKED' && seat.lockedBy !== currentUserId;
+    const isBooked = seat.status === 'BOOKED';
+
+    if (isBooked || isLocked || isOthersSelecting) {
       return; // Can't select booked, locked by someone else, or seats currently being selected by someone else
     }
 
@@ -145,7 +193,7 @@ export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, 
       }
     } else {
       if (newSet.size >= 8) {
-        alert('You can only select up to 8 seats.');
+        showWarning('Bạn chỉ có thể chọn tối đa 8 ghế.');
         return;
       }
       // Optimistically add it
@@ -185,28 +233,50 @@ export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, 
             <div className="flex gap-2">
               {rows[row].sort((a, b) => a.number - b.number).map(seat => {
                 const isSelected = selectedSeatIds.has(seat.id);
-                const isOthersSelecting = othersSelecting.has(seat.id) && !isSelected;
+                const isOthersSelecting = (othersSelecting.has(seat.id) || (seat.status === 'SELECTING' && seat.lockedBy !== currentUserId)) && !isSelected;
                 const isLocked = seat.status === 'LOCKED' && seat.lockedBy !== currentUserId;
                 const isBooked = seat.status === 'BOOKED';
+                const isSweetbox = seat.type === 'SWEETBOX';
+                const isVip = seat.type === 'VIP';
 
-                let seatClasses = "w-10 h-10 rounded-t-lg rounded-b flex items-center justify-center text-xs font-bold transition-all duration-300 cursor-pointer ";
+                // Sweetbox double-seat width (w-24), standard width (w-10)
+                const widthClass = isSweetbox ? 'w-24' : 'w-10';
+
+                // Visual spacing & aisles: Sweetbox couples walkway (after seat 4) and couple gaps (after even seats); Standard hall center aisle (after seat 5)
+                let aisleClass = '';
+                if (isSweetbox) {
+                  if (seat.number === 4) {
+                    aisleClass = ' mr-8'; // Central walkway aisle
+                  } else if (seat.number % 2 === 0 && seat.number < rows[row].length) {
+                    aisleClass = ' mr-4'; // Couple spacing
+                  }
+                } else {
+                  if (seat.number === 5 && rows[row].length >= 8) {
+                    aisleClass = ' mr-6'; // Center aisle
+                  }
+                }
+
+                // Subdued type indicator border on seat bottom
+                let typeIndicator = '';
+                if (isVip) {
+                  typeIndicator = ' border-b-2 border-b-pink-500';
+                } else if (isSweetbox) {
+                  typeIndicator = ' border-b-2 border-b-purple-500';
+                }
+
+                let seatClasses = `${widthClass} h-10 rounded-t-lg rounded-b flex items-center justify-center text-xs font-bold transition-all duration-300${aisleClass} `;
 
                 if (isBooked) {
-                  seatClasses += "bg-zinc-800 text-zinc-600 cursor-not-allowed";
+                  seatClasses += `bg-zinc-800 text-zinc-600 cursor-not-allowed${typeIndicator}`;
                 } else if (isLocked) {
-                  seatClasses += "bg-red-500/20 text-red-500 border border-red-500/50 cursor-not-allowed";
+                  seatClasses += `bg-red-500/20 text-red-500 border border-red-500/50 cursor-not-allowed${typeIndicator}`;
                 } else if (isSelected) {
-                  seatClasses += "bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.8)] border border-cyan-400";
+                  seatClasses += `bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.8)] border border-cyan-400 cursor-pointer${typeIndicator}`;
                 } else if (isOthersSelecting) {
-                  seatClasses += "bg-zinc-700 text-white animate-pulse border border-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.5)]";
+                  seatClasses += `bg-amber-500/20 text-amber-300 border-2 border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.6)] animate-pulse cursor-not-allowed${typeIndicator}`;
                 } else {
                   // Available
-                  seatClasses += "bg-zinc-700 text-zinc-300 hover:bg-cyan-500/20 hover:border-cyan-500 hover:text-cyan-400 border border-transparent";
-                  if (seat.type === 'VIP') {
-                    seatClasses += " border-b-2 border-b-pink-500";
-                  } else if (seat.type === 'SWEETBOX') {
-                    seatClasses += " w-22 border-b-2 border-b-purple-500";
-                  }
+                  seatClasses += `bg-zinc-700 text-zinc-300 hover:bg-cyan-500/20 hover:border-cyan-500 hover:text-cyan-400 border border-transparent cursor-pointer${typeIndicator}`;
                 }
 
                 return (
@@ -231,23 +301,31 @@ export default function SeatGrid({ showtimeId, initialSeats, onSelectionChange, 
       <div className="flex flex-wrap gap-6 mt-8 justify-center items-center text-sm">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-t bg-zinc-700"></div>
-          <span className="text-zinc-400">Available</span>
+          <span className="text-zinc-400">Ghế trống</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-t bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.8)]"></div>
-          <span className="text-zinc-400">Selected</span>
+          <div className="w-6 h-6 rounded-t bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.8)] border border-cyan-400"></div>
+          <span className="text-zinc-400">Ghế bạn chọn</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-t bg-zinc-700 animate-pulse border border-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.5)]"></div>
-          <span className="text-zinc-400">Others Selecting</span>
+          <div className="w-6 h-6 rounded-t bg-amber-500/20 border-2 border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.6)] animate-pulse"></div>
+          <span className="text-amber-300 font-medium">Đang chọn / Giữ chỗ</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-t bg-red-500/20 border border-red-500/50"></div>
-          <span className="text-zinc-400">Locked</span>
+          <span className="text-zinc-400">Đang giữ / Tạm khóa</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-t bg-zinc-800"></div>
-          <span className="text-zinc-400">Booked</span>
+          <span className="text-zinc-400">Đã đặt</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-t bg-zinc-700 border-b-2 border-b-pink-500"></div>
+          <span className="text-zinc-400">Ghế VIP</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-10 h-6 rounded-t bg-zinc-700 border-b-2 border-b-purple-500"></div>
+          <span className="text-zinc-400">Sweetbox (Đôi)</span>
         </div>
       </div>
     </div>

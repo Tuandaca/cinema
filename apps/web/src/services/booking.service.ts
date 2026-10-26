@@ -23,6 +23,47 @@ export interface ShowtimeDetails {
   };
 }
 
+export interface MyBooking {
+  id: string;
+  status: 'PENDING' | 'PAID' | 'CANCELLED';
+  totalAmount: number;
+  createdAt: string;
+  showtime: {
+    id: string;
+    startTime: string;
+    endTime: string;
+    movie: {
+      id: string;
+      title: string;
+      posterUrl: string | null;
+    };
+    room: {
+      id: string;
+      name: string;
+    };
+  };
+  seats: {
+    id: string;
+    seatId: string;
+    price: number;
+    seat: {
+      id: string;
+      row: string;
+      number: number;
+      type: string;
+    };
+  }[];
+  orderItems: {
+    id: string;
+    quantity: number;
+    combo: {
+      id: string;
+      name: string;
+      price: number;
+    };
+  }[];
+}
+
 export const bookingService = {
   getShowtimeDetails: async (showtimeId: string): Promise<ShowtimeDetails> => {
     const response = await fetch(`${API_URL}/showtimes/${showtimeId}`);
@@ -141,6 +182,20 @@ export const bookingService = {
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.message || 'Failed to fetch booking details');
+    }
+    return response.json();
+  },
+
+  getMyBookings: async (token: string): Promise<MyBooking[]> => {
+    const response = await fetch(`${API_URL}/showtimes/bookings/my`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to fetch bookings');
     }
     return response.json();
   },

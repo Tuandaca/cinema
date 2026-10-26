@@ -41,6 +41,8 @@ Toàn bộ tài liệu đặc tả dự án được lưu trữ trong thư mục
 4.  **[API Spec](file:///d:/Projects/cinema/docs/06-api-spec.md)**: Đặc tả REST APIs.
 5.  **[Architecture](file:///d:/Projects/cinema/docs/07-architecture.md)**: Kiến trúc hệ thống tổng thể.
 6.  **[AI Spec](file:///d:/Projects/cinema/docs/14-ai-assistant-spec.md)**: Thiết kế hội thoại & logic AI.
+7.  **[Production Deployment Guide](file:///d:/Projects/cinema/docs/PRODUCTION_DEPLOYMENT_GUIDE.md)**: Hướng dẫn chi tiết triển khai Production (PaaS & VPS Docker Compose).
+8.  **[Payment Configuration](file:///d:/Projects/cinema/docs/PAYMENT_CONFIG.md)**: Hướng dẫn cấu hình thanh toán thật VietQR Napas 247 & Stripe.
 
 ---
 
@@ -52,8 +54,9 @@ Toàn bộ tài liệu đặc tả dự án được lưu trữ trong thư mục
 - [x] **Phase 4: Real-time Seat Booking** (Hoàn thành)
 - [x] **Phase 5: Payment & Invoice** (Hoàn thành)
 - [x] **Phase 6: AI Assistant Integration** (Hoàn thành - Gemini 2.5 Flash)
-- [/] **Phase 7: Admin Dashboard** (Đang triển khai)
-- [ ] **Phase 8: Optimization & Deployment**
+- [x] **Phase 7: Admin Dashboard** (Hoàn thành)
+- [x] **Phase 8: User Experience & Real Payment Polish** (Hoàn thành - VietQR Napas 247, Custom Modals, Tickets Dashboard, 4,463 Showtimes)
+- [x] **Phase 9: Realtime Synchronization & Multi-Room Layout Polish** (Hoàn thành - Hero Carousel, Weekly Pagination, Past Showtimes Lock, 0 Dupes)
 
 ---
 
@@ -68,10 +71,10 @@ Khi bắt đầu một phiên làm việc mới, Agent PHẢI thực hiện các
 ---
 
 ## 🚀 Deployment (Triển khai)
-- **Frontend:** Vercel
-- **Backend:** Railway / Render
-- **Database:** Supabase
-- **Redis:** Upstash
+Xem hướng dẫn chi tiết từng bước tại: **[PRODUCTION_DEPLOYMENT_GUIDE.md](file:///d:/Projects/cinema/docs/PRODUCTION_DEPLOYMENT_GUIDE.md)**
+
+- **Phương án 1 (Cloud PaaS):** Vercel (Frontend) + Railway / Render (Backend) + Supabase (PostgreSQL) + Upstash (Redis).
+- **Phương án 2 (Self-Hosted):** Ubuntu VPS + Docker Compose + Nginx Reverse Proxy (WSS support) + Let's Encrypt SSL.
 
 ---
 *Created and Managed by Antigravity AI vs Tuandaca*

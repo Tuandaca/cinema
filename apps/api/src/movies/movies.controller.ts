@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Query, UseGuards, Param } from "@nestjs/common";
+import { Controller, Get, Post, Query, UseGuards, Param, Res } from "@nestjs/common";
+import type { Response } from "express";
 import { MoviesService } from "./movies.service";
 import { MovieSyncService } from "./movie-sync.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -30,8 +31,24 @@ export class MoviesController {
   }
 
   @Get(":id/showtimes")
-  async getShowtimes(@Param("id") id: string) {
-    return this.moviesService.getShowtimes(id);
+  async getShowtimes(
+    @Param("id") id: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+    @Query("limit") limit?: string,
+    @Res({ passthrough: true }) res?: Response,
+  ) {
+    const limitNum = limit ? parseInt(limit, 10) : undefined;
+    const showtimes = await this.moviesService.getShowtimes(
+      id,
+      startDate,
+      endDate,
+      limitNum,
+    );
+    if (res?.setHeader) {
+      res.setHeader("X-Has-More", showtimes.hasMore ? "true" : "false");
+    }
+    return showtimes;
   }
 
   @Post("sync")

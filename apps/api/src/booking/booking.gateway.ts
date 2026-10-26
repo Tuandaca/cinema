@@ -12,15 +12,23 @@ import { Logger, UseGuards } from "@nestjs/common";
 import { BookingService } from "./booking.service";
 import { WsJwtGuard } from "../auth/guards/ws-jwt.guard";
 
+const envOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 const allowedOrigins = [
-  "http://localhost:3000",
-  "http://127.0.0.1:3000",
-  "http://localhost:3001",
-  "http://127.0.0.1:3001",
-  "http://localhost:3005",
-  "http://127.0.0.1:3005",
-  "http://localhost:3006",
-  "http://127.0.0.1:3006",
+  ...new Set([
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+    "http://localhost:3005",
+    "http://127.0.0.1:3005",
+    "http://localhost:3006",
+    "http://127.0.0.1:3006",
+    ...envOrigins,
+  ]),
 ];
 
 @WebSocketGateway({

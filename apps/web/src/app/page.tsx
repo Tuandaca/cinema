@@ -14,7 +14,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col w-full">
-      <Hero />
+      <Hero movies={movies} isLoading={isLoading} />
       
       {/* Trending Section */}
       <section id="trending-section" className="py-24 container mx-auto px-6">

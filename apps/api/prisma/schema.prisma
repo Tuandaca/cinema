@@ -86,6 +86,8 @@ model Seat {
   number   Int
   type     String      @default("NORMAL") // NORMAL, VIP, SWEETBOX
   bookingSeats BookingSeat[]
+
+  @@unique([roomId, row, number])
 }
 
 model Showtime {

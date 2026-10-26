@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
 import { adminService } from '@/services/admin.service';
+import ConfirmModal from '@/components/ui/ConfirmModal';
+import CinematicPoster from '@/components/common/CinematicPoster';
 import {
   CalendarClock,
   Plus,
@@ -47,6 +49,8 @@ export default function AdminShowtimesPage() {
 
   // Create Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showtimeToDelete, setShowtimeToDelete] = useState<ShowtimeItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [formData, setFormData] = useState({
     movieId: '',
     roomId: '',
@@ -142,22 +146,26 @@ export default function AdminShowtimesPage() {
     }
   };
 
-  const handleDeleteShowtime = async (st: ShowtimeItem) => {
-    if (!token) return;
-    const confirm = window.confirm(
-      `Xác nhận xóa suất chiếu "${st.movie.title}" lúc ${new Date(st.startTime).toLocaleString('vi-VN')}?`,
-    );
-    if (!confirm) return;
+  const handleDeleteShowtime = (st: ShowtimeItem) => {
+    setShowtimeToDelete(st);
+  };
+
+  const confirmDeleteShowtime = async () => {
+    if (!token || !showtimeToDelete) return;
+    setIsDeleting(true);
 
     try {
-      await adminService.deleteShowtime(token, st.id);
+      await adminService.deleteShowtime(token, showtimeToDelete.id);
       setActionMessage({ type: 'success', text: 'Đã xóa suất chiếu thành công!' });
+      setShowtimeToDelete(null);
       fetchShowtimes();
     } catch (err: any) {
       setActionMessage({
         type: 'error',
         text: err.response?.data?.message || 'Không thể xóa suất chiếu đã có vé.',
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -318,17 +326,11 @@ export default function AdminShowtimesPage() {
                       </td>
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-2.5">
-                          {st.movie.posterUrl ? (
-                            <img
-                              src={st.movie.posterUrl}
-                              alt={st.movie.title}
-                              className="w-8 h-11 object-cover rounded border border-zinc-700/80"
-                            />
-                          ) : (
-                            <div className="w-8 h-11 rounded bg-zinc-800 flex items-center justify-center text-zinc-500">
-                              <Ticket className="w-4 h-4" />
-                            </div>
-                          )}
+                          <CinematicPoster
+                            src={st.movie.posterUrl}
+                            alt={st.movie.title}
+                            className="w-8 h-11 object-cover rounded border border-zinc-700/80 shrink-0"
+                          />
                           <div className="min-w-0">
                             <p className="font-semibold text-white truncate max-w-[200px]">
                               {st.movie.title}
@@ -517,6 +519,21 @@ export default function AdminShowtimesPage() {
           </div>
         </div>
       )}
+
+      {/* Confirm Delete Showtime Modal */}
+      <ConfirmModal
+        isOpen={!!showtimeToDelete}
+        title="Xác nhận xóa suất chiếu"
+        message={`Xác nhận xóa suất chiếu "${showtimeToDelete?.movie.title}" lúc ${
+          showtimeToDelete ? new Date(showtimeToDelete.startTime).toLocaleString('vi-VN') : ''
+        }? Hành động này không thể hoàn tác.`}
+        confirmText="Xác nhận xóa"
+        cancelText="Hủy bỏ"
+        variant="danger"
+        isLoading={isDeleting}
+        onConfirm={confirmDeleteShowtime}
+        onCancel={() => setShowtimeToDelete(null)}
+      />
     </div>
   );
 }

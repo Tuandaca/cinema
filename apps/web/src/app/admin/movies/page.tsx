@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
 import { adminService } from '@/services/admin.service';
+import ConfirmModal from '@/components/ui/ConfirmModal';
+import CinematicPoster from '@/components/common/CinematicPoster';
 import {
   Film,
   Plus,
@@ -46,6 +48,8 @@ export default function AdminMoviesPage() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMovie, setEditingMovie] = useState<MovieItem | null>(null);
+  const [movieToDelete, setMovieToDelete] = useState<MovieItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -177,20 +181,26 @@ export default function AdminMoviesPage() {
     }
   };
 
-  const handleDeleteMovie = async (movie: MovieItem) => {
-    if (!token) return;
-    const confirm = window.confirm(`Bạn có chắc chắn muốn xóa phim "${movie.title}"?`);
-    if (!confirm) return;
+  const handleDeleteMovie = (movie: MovieItem) => {
+    setMovieToDelete(movie);
+  };
+
+  const confirmDeleteMovie = async () => {
+    if (!token || !movieToDelete) return;
+    setIsDeleting(true);
 
     try {
-      await adminService.deleteMovie(token, movie.id);
-      setActionMessage({ type: 'success', text: `Đã xóa phim "${movie.title}" thành công!` });
+      await adminService.deleteMovie(token, movieToDelete.id);
+      setActionMessage({ type: 'success', text: `Đã xóa phim "${movieToDelete.title}" thành công!` });
+      setMovieToDelete(null);
       fetchMovies();
     } catch (err: any) {
       setActionMessage({
         type: 'error',
         text: err.response?.data?.message || 'Không thể xóa phim này.',
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -308,17 +318,11 @@ export default function AdminMoviesPage() {
                   <tr key={m.id} className="hover:bg-zinc-800/30 transition">
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-3">
-                        {m.posterUrl ? (
-                          <img
-                            src={m.posterUrl}
-                            alt={m.title}
-                            className="w-10 h-14 object-cover rounded-lg border border-zinc-700/80 shadow"
-                          />
-                        ) : (
-                          <div className="w-10 h-14 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-500">
-                            <Film className="w-5 h-5" />
-                          </div>
-                        )}
+                        <CinematicPoster
+                          src={m.posterUrl}
+                          alt={m.title}
+                          className="w-10 h-14 object-cover rounded-lg border border-zinc-700/80 shadow shrink-0"
+                        />
                         <div className="min-w-0">
                           <p className="font-bold text-white text-sm truncate max-w-[220px]">
                             {m.title}
@@ -558,6 +562,19 @@ export default function AdminMoviesPage() {
           </div>
         </div>
       )}
+
+      {/* Confirm Delete Movie Modal */}
+      <ConfirmModal
+        isOpen={!!movieToDelete}
+        title="Xác nhận xóa phim"
+        message={`Bạn có chắc chắn muốn xóa phim "${movieToDelete?.title}"? Hành động này sẽ xóa các dữ liệu liên quan và không thể hoàn tác.`}
+        confirmText="Xác nhận xóa"
+        cancelText="Hủy bỏ"
+        variant="danger"
+        isLoading={isDeleting}
+        onConfirm={confirmDeleteMovie}
+        onCancel={() => setMovieToDelete(null)}
+      />
     </div>
   );
 }

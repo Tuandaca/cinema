@@ -1,5 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { BookingService } from "./booking.service";
+import { ShowtimeGuard } from "./guards/showtime.guard";
 import { PrismaService } from "../prisma/prisma.service";
 import { RedisService } from "../redis/redis.service";
 import { BadRequestException, UnauthorizedException } from "@nestjs/common";
@@ -21,6 +22,7 @@ describe("BookingService with Resilient In-Memory Seat Locking", () => {
 
   const mockShowtime = {
     id: mockShowtimeId,
+    startTime: new Date(Date.now() + 86400000),
     priceBase: 100000,
     room: {
       id: "room-1",
@@ -29,6 +31,7 @@ describe("BookingService with Resilient In-Memory Seat Locking", () => {
     movie: {
       id: "movie-1",
       title: "Dune Part Two",
+      genres: [{ id: "g-1", name: "Sci-Fi" }],
     },
   };
 
@@ -36,6 +39,7 @@ describe("BookingService with Resilient In-Memory Seat Locking", () => {
     mockPrisma = {
       showtime: {
         findUnique: jest.fn().mockResolvedValue(mockShowtime),
+        findMany: jest.fn().mockResolvedValue([mockShowtime]),
       },
       booking: {
         findMany: jest.fn().mockResolvedValue([]),
@@ -208,6 +212,17 @@ describe("BookingService with Resilient In-Memory Seat Locking", () => {
       expect(renewed).toBe(true);
       expect(await redisService.getLock(`lock:${mockShowtimeId}:seat-A1`)).toBe(mockUserId);
     });
+
+    it("should reject lockSeats for past showtimes with BadRequestException", async () => {
+      mockPrisma.showtime.findUnique.mockResolvedValueOnce({
+        ...mockShowtime,
+        startTime: new Date(Date.now() - 3600000), // 1 hour ago
+      });
+
+      await expect(
+        bookingService.lockSeats(mockShowtimeId, ["seat-A1"], mockUserId),
+      ).rejects.toThrow("Không thể giữ ghế cho suất chiếu đã quá hạn");
+    });
   });
 
   describe("softLockSeat & releaseSoftLockSeat", () => {
@@ -215,6 +230,16 @@ describe("BookingService with Resilient In-Memory Seat Locking", () => {
       const ok = await bookingService.softLockSeat(mockShowtimeId, "seat-A1", mockUserId);
       expect(ok).toBe(true);
       expect(await redisService.getLock(`softlock:${mockShowtimeId}:seat-A1`)).toBe(mockUserId);
+    });
+
+    it("should reject softLockSeat for past showtimes", async () => {
+      mockPrisma.showtime.findUnique.mockResolvedValueOnce({
+        ...mockShowtime,
+        startTime: new Date(Date.now() - 3600000), // 1 hour ago
+      });
+
+      const result = await bookingService.softLockSeat(mockShowtimeId, "seat-A1", mockUserId);
+      expect(result).toBe(false);
     });
 
     it("should reject soft-lock if another user currently holds the soft-lock", async () => {
@@ -308,6 +333,17 @@ describe("BookingService with Resilient In-Memory Seat Locking", () => {
         bookingService.createBooking("unknown-user", mockShowtimeId, ["seat-A1"], []),
       ).rejects.toThrow(UnauthorizedException);
     });
+
+    it("should reject createBooking for past showtimes with BadRequestException", async () => {
+      mockPrisma.showtime.findUnique.mockResolvedValueOnce({
+        ...mockShowtime,
+        startTime: new Date(Date.now() - 3600000), // 1 hour ago
+      });
+
+      await expect(
+        bookingService.createBooking(mockUserId, mockShowtimeId, ["seat-A1"], []),
+      ).rejects.toThrow("Không thể đặt vé cho suất chiếu đã quá hạn");
+    });
   });
 
   describe("releaseAllUserLocks (WebSocket Disconnect Cleanup)", () => {
@@ -364,6 +400,169 @@ describe("BookingService with Resilient In-Memory Seat Locking", () => {
       expect(await redisService.getLock(`lock:${mockShowtimeId}:seat-A2`)).toBe(mockUserId);
       // Showtime 2 soft-lock remains untouched
       expect(await redisService.getLock(`softlock:${showtime2}:seat-A1`)).toBe(mockUserId);
+    });
+  });
+
+  describe("getPublicShowtimes", () => {
+    it("should query showtimes within dayStart and dayEnd for valid YYYY-MM-DD date", async () => {
+      const result = await bookingService.getPublicShowtimes("2026-10-26");
+      expect(result).toBeDefined();
+      expect(Array.isArray(result)).toBe(true);
+      expect(mockPrisma.showtime.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            startTime: {
+              gte: new Date("2026-10-26T00:00:00.000+07:00"),
+              lte: new Date("2026-10-26T23:59:59.999+07:00"),
+            },
+          }),
+        }),
+      );
+    });
+
+    it("should query future showtimes starting from current time when date is omitted", async () => {
+      const result = await bookingService.getPublicShowtimes();
+      expect(result).toBeDefined();
+      expect(mockPrisma.showtime.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            startTime: {
+              gte: expect.any(Date),
+            },
+          }),
+        }),
+      );
+    });
+
+    it("should query future showtimes when date is empty or whitespace string", async () => {
+      const result = await bookingService.getPublicShowtimes("   ");
+      expect(result).toBeDefined();
+      expect(mockPrisma.showtime.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            startTime: {
+              gte: expect.any(Date),
+            },
+          }),
+        }),
+      );
+    });
+
+    it("should throw BadRequestException when date is 'invalid-date'", async () => {
+      await expect(
+        bookingService.getPublicShowtimes("invalid-date"),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("should throw BadRequestException when date is '2026-99-99'", async () => {
+      await expect(
+        bookingService.getPublicShowtimes("2026-99-99"),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("should throw BadRequestException when date is 'null'", async () => {
+      await expect(
+        bookingService.getPublicShowtimes("null"),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("should throw BadRequestException when date is 'undefined'", async () => {
+      await expect(
+        bookingService.getPublicShowtimes("undefined"),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("should filter by movieId when movieId is provided", async () => {
+      await bookingService.getPublicShowtimes("2026-10-27", "movie-uuid-1");
+      expect(mockPrisma.showtime.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            movieId: "movie-uuid-1",
+            startTime: {
+              gte: new Date("2026-10-27T00:00:00.000+07:00"),
+              lte: new Date("2026-10-27T23:59:59.999+07:00"),
+            },
+          }),
+        }),
+      );
+    });
+
+    it("should return cached showtimes on subsequent calls with the same params", async () => {
+      const firstResult = await bookingService.getPublicShowtimes("2026-10-28", "movie-uuid-1");
+      const callsBefore = mockPrisma.showtime.findMany.mock.calls.length;
+
+      const cachedResult = await bookingService.getPublicShowtimes("2026-10-28", "movie-uuid-1");
+      expect(mockPrisma.showtime.findMany.mock.calls.length).toBe(callsBefore);
+      expect(cachedResult).toEqual(firstResult);
+    });
+  });
+
+  describe("ShowtimeGuard", () => {
+    let guard: ShowtimeGuard;
+
+    beforeEach(() => {
+      guard = new ShowtimeGuard(mockPrisma);
+    });
+
+    it("should allow future showtimes via route param id", async () => {
+      const mockContext: any = {
+        switchToHttp: () => ({
+          getRequest: () => ({ params: { id: mockShowtimeId } }),
+        }),
+      };
+      const allowed = await guard.canActivate(mockContext);
+      expect(allowed).toBe(true);
+    });
+
+    it("should allow future showtimes via request body showtimeId", async () => {
+      const mockContext: any = {
+        switchToHttp: () => ({
+          getRequest: () => ({ params: {}, body: { showtimeId: mockShowtimeId } }),
+        }),
+      };
+      const allowed = await guard.canActivate(mockContext);
+      expect(allowed).toBe(true);
+    });
+
+    it("should reject past showtimes with BadRequestException", async () => {
+      mockPrisma.showtime.findUnique.mockResolvedValueOnce({
+        id: mockShowtimeId,
+        startTime: new Date(Date.now() - 3600000), // 1 hour ago
+      });
+
+      const mockContext: any = {
+        switchToHttp: () => ({
+          getRequest: () => ({ params: { id: mockShowtimeId } }),
+        }),
+      };
+
+      await expect(guard.canActivate(mockContext)).rejects.toThrow(
+        "Không thể đặt hoặc giữ ghế cho suất chiếu đã kết thúc hoặc đang diễn ra",
+      );
+    });
+
+    it("should reject non-existent showtimes with BadRequestException", async () => {
+      mockPrisma.showtime.findUnique.mockResolvedValueOnce(null);
+
+      const mockContext: any = {
+        switchToHttp: () => ({
+          getRequest: () => ({ params: { id: "non-existent" } }),
+        }),
+      };
+
+      await expect(guard.canActivate(mockContext)).rejects.toThrow(
+        "Suất chiếu không tồn tại",
+      );
+    });
+
+    it("should return true when no showtimeId is provided in request", async () => {
+      const mockContext: any = {
+        switchToHttp: () => ({
+          getRequest: () => ({ params: {}, body: {} }),
+        }),
+      };
+      const allowed = await guard.canActivate(mockContext);
+      expect(allowed).toBe(true);
     });
   });
 });

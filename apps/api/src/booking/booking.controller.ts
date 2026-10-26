@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Param,
+  Query,
   UseGuards,
   Req,
 } from "@nestjs/common";
@@ -11,12 +12,26 @@ import { BookingService, SeatStatus } from "./booking.service";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { BookingGateway } from "./booking.gateway";
 
-@Controller("showtimes")
+@Controller(["showtimes", "booking"])
 export class BookingController {
   constructor(
     private readonly bookingService: BookingService,
     private readonly bookingGateway: BookingGateway,
   ) {}
+
+  @Get()
+  async getPublicShowtimes(
+    @Query("date") date?: string,
+    @Query("movieId") movieId?: string,
+  ) {
+    return this.bookingService.getPublicShowtimes(date, movieId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get("my-tickets")
+  async getMyTickets(@Req() req: any) {
+    return this.bookingService.getMyBookings(req.user.id);
+  }
 
   @Get(":id")
   async getShowtime(@Param("id") id: string) {
@@ -65,6 +80,12 @@ export class BookingController {
       userId,
     );
     return booking;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get("bookings/my")
+  async getMyBookings(@Req() req: any) {
+    return this.bookingService.getMyBookings(req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
