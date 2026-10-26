@@ -57,6 +57,7 @@ Toàn bộ tài liệu đặc tả dự án được lưu trữ trong thư mục
 - [x] **Phase 7: Admin Dashboard** (Hoàn thành)
 - [x] **Phase 8: User Experience & Real Payment Polish** (Hoàn thành - VietQR Napas 247, Custom Modals, Tickets Dashboard, 4,463 Showtimes)
 - [x] **Phase 9: Realtime Synchronization & Multi-Room Layout Polish** (Hoàn thành - Hero Carousel, Weekly Pagination, Past Showtimes Lock, 0 Dupes)
+- [x] **Phase 10: Production Deployment Architecture & DevOps** (Hoàn thành - Cẩm nang triển khai PaaS & Docker Compose VPS, Nginx WSS, Backup tự động)
 
 ---
 

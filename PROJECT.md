@@ -61,6 +61,12 @@ Scope:
 | 12 | Cinematic Poster Integration in Views | Integrate `CinematicPoster` in `MovieDetailView.tsx`, `booking/page.tsx`, and `checkout/page.tsx` | M3 | ORIGINAL_REQUEST §R1 |
 | 13 | Payment Configuration Documentation | Detailed configuration guide for VietQR (Bank ID, Account No, Name) and Stripe in `docs/PAYMENT_CONFIG.md` & `.env.example` | M3 | ORIGINAL_REQUEST §R6 |
 | 14 | Monorepo Quality Gate & Integrity Forensics | Full typecheck, monorepo build, backend tests, reviewer checks, challenger verifications, forensic audit | M4 | ORIGINAL_REQUEST §Acceptance Criteria |
+| 15 | Weekly Showtimes Pagination | Show current week first, with "Xem thêm suất chiếu tuần tới" button loading next 7 days incrementally | M5 | PHASE9_REQUEST §R1 |
+| 16 | Real-time Past Showtime Blocking | Block past showtimes (`startTime <= now`) with disabled UI and backend reject (400) | M5 | PHASE9_REQUEST §R2 |
+| 17 | Top Rated Movies Hero Carousel | Auto-sliding carousel of top movies with trailer modal and dynamic "Book Tickets Now" targeting active slide | M5 | PHASE9_REQUEST §R3 |
+| 18 | Multi-Room Layouts & Seat Deduplication | 0 duplicate seats (`dupesCount = 0`), 3 distinct room layouts (IMAX 72, Standard 45, Sweetbox 24) | M5 | PHASE9_REQUEST §R4, §R5 |
+| 19 | Navbar Direct Tickets Shortcut & Animation | Direct "Vé của tôi" on navbar with active pill & pulse badge; Framer Motion page transitions | M5 | PHASE9_REQUEST §R6 |
+| 20 | Comprehensive Production Deployment Guide | Step-by-step PaaS & VPS Docker Compose deployment guide, Nginx WSS proxy, automated backup, smoke tests | M6 | PHASE10_DEPLOYMENT |
 
 ---
 
@@ -71,6 +77,8 @@ Scope:
 | 2 | M2: Frontend Core UI & Real-Time Sync | CinematicPoster.tsx, ConfirmModal.tsx, SeatGrid.tsx initial load sync & amber glow border, admin confirm replacement | none | DONE |
 | 3 | M3: User Pages, Dashboard & Payment UI | Checkout alert removal & VNĐ formatting, /profile/tickets upgrade, VietQR checkout display, poster integration, config docs | M1, M2 | DONE |
 | 4 | M4: Monorepo Quality Gate & Forensic Audit | Monorepo build, backend tests, reviewers, challengers, forensic auditor verification | M1, M2, M3 | DONE |
+| 5 | M5: Phase 9 Experience, Layout & Showtimes | Weekly pagination, past showtime blocking, hero carousel, room deduplication, navbar tickets shortcut | M1-M4 | DONE |
+| 6 | M6: Phase 10 Production Deployment & DevOps | Comprehensive deployment guide, Nginx WSS proxy config, dynamic CORS origins, backup script, smoke test checklist | M5 | DONE |
 
 ---
 

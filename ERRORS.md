@@ -315,8 +315,41 @@
   Collision Test: 70 room-time collisions detected across database showtimes grouped by roomId.
   Example: Interstellar [2026-09-15T02:00:00Z - 04:49:00Z] overlaps with Avengers: Endgame [2026-09-15T02:00:00Z - 05:01:00Z] in Premium Cinema 01 (room-1).
   ```
-- **Fix Applied**: Investigated and reported in `handoff.md` with recommended remediation: `deleteMany({ where: { startTime: { lt: baseDate }, bookings: { none: {} } } })`.
+- **Fix Applied**: Bổ sung cơ chế dọn sạch toàn bộ suất chiếu không có booking trong quá khứ (`bookings: { none: {} }`), nạp mới 4.463 suất chiếu liên tục từ 2026-10-26 đến 2027-06-30 qua `seed-future-showtimes.ts` và kiểm thử xác nhận 0% collisions.
 - **Prevention**: Khi seed lại lịch chiếu toàn diện, cần dọn sạch cả các suất chiếu rác không có booking trong quá khứ để tránh gây sai lệch dữ liệu thống kê và kiểm thử trùng phòng.
-- **Status**: Investigating
+- **Status**: Fixed
+
+---
+
+## [2026-10-26 14:15] - Duplicate Seat Records in room-3 (Gold Class Sweetbox)
+- **Type**: Logic/Data Integrity
+- **Severity**: High
+- **File**: `apps/api/prisma/seed.ts` & Supabase Database
+- **Agent**: cinemaAgent
+- **Root Cause**: Tiền tố ID ghế không đồng nhất giữa script cũ và mới (`seat-room-3-A2` vs `seat-r3-A2`), dẫn đến bảng `Seat` trong phòng 3 bị nhân đôi 16 ghế.
+- **Error Message**:
+  ```text
+  Duplicate Seats Detected: 16 duplicate seat codes in room-3 (Sweetbox).
+  ```
+- **Fix Applied**: Khởi chạy script deduplication dọn dẹp các bản ghi dư thừa, chuẩn hóa lại toàn bộ 3 layout phòng (IMAX: 72 ghế, Standard: 45 ghế, Sweetbox: 24 ghế). Đã kiểm thử xác nhận `dupesCount = 0`.
+- **Prevention**: Luôn sử dụng upsert dựa trên unique compound index `[roomId, row, number]` khi khởi tạo sơ đồ ghế rạp.
+- **Status**: Fixed
+
+---
+
+## [2026-10-26 18:37] - GitHub Push Protection Block on Example Key Patterns
+- **Type**: Process/Security
+- **Severity**: Medium
+- **File**: `.env.example:50` & `docs/PAYMENT_CONFIG.md:137`
+- **Agent**: cinemaAgent
+- **Root Cause**: Trình quét tự động Secret Scanning của GitHub phát hiện chuỗi mẫu bắt đầu bằng `sk_test_51...` là mẫu khóa bảo mật dù chỉ là chuỗi placeholder `xxxx...`.
+- **Error Message**:
+  ```text
+  remote: error: GH013: Repository rule violations found for refs/heads/main.
+  remote: - GITHUB PUSH PROTECTION: Push cannot contain secrets (Highnote/Stripe SK Test Key)
+  ```
+- **Fix Applied**: Thay thế tất cả chuỗi placeholder dạng `sk_test_51xxx...`, `sk_live_51...` thành các chuỗi mô tả rõ nghĩa như `your-stripe-secret-key-or-leave-empty-for-mock`, loại bỏ hoàn toàn cảnh báo quét khóa nhầm lẫn.
+- **Prevention**: Không bao giờ sử dụng tiền tố chuẩn của khóa bảo mật (`sk_live_`, `sk_test_`, `AIzaSy`) kể cả trong file `.env.example` hoặc tài liệu Markdown.
+- **Status**: Fixed
 
 ---
